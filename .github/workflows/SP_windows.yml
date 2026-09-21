@@ -1,6 +1,7 @@
 name: SP_Windows_TiltShift
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '.github/**'
@@ -47,3 +48,4 @@ jobs:
             sp/game/mod_episodic/shaders/fxc/bs2_tiltshift_ps20b.vcs
             sp/game/mod_episodic/cfg/bs2_tiltshift_*.cfg
           if-no-files-found: error
+
