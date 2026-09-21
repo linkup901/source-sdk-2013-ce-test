@@ -1,0 +1,57 @@
+// BS2 tilt-shift: two separable passes, variable Gaussian support radius.
+// No static/dynamic combinations, includes, depth buffer or temporal noise.
+sampler2D Scene : register(s0);
+float4 TexelDirection : register(c0); // inverse texture size xy, pass axis zw
+float4 Focus : register(c1); // center, half width, falloff, aspect-corrected slope
+float4 Look : register(c2); // radius in texels, strength, saturation, debug mask
+float4 ViewRect : register(c3); // first pixel-center UV xy, extent zw
+
+float4 main(float2 uv : TEXCOORD0) : COLOR0
+{
+    float2 screen = (uv - ViewRect.xy) / ViewRect.zw;
+    float distance = abs(screen.y - Focus.x - (screen.x - 0.5) * Focus.w);
+    float t = saturate((distance - Focus.y) / max(Focus.z, 0.0001));
+    float mask = t * t * (3.0 - 2.0 * t);
+    float2 stepUV = TexelDirection.xy * TexelDirection.zw * (Look.x * Look.y * mask / 32.0);
+    float2 low = ViewRect.xy;
+    float2 high = ViewRect.xy + ViewRect.zw;
+    // Dense 65-tap Gaussian, sigma=12 steps. Radius <=32 pixels keeps
+    // adjacent taps <=1 texel apart, preventing the sparse-grid artifact.
+    float3 color = tex2D(Scene, clamp(uv, low, high)).rgb * 0.0334709938;
+    color += (tex2D(Scene, clamp(uv + stepUV*1, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*1, low, high)).rgb) * 0.0333549766;
+    color += (tex2D(Scene, clamp(uv + stepUV*2, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*2, low, high)).rgb) * 0.0330093323;
+    color += (tex2D(Scene, clamp(uv + stepUV*3, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*3, low, high)).rgb) * 0.0324411996;
+    color += (tex2D(Scene, clamp(uv + stepUV*4, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*4, low, high)).rgb) * 0.0316622035;
+    color += (tex2D(Scene, clamp(uv + stepUV*5, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*5, low, high)).rgb) * 0.0306880599;
+    color += (tex2D(Scene, clamp(uv + stepUV*6, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*6, low, high)).rgb) * 0.0295380483;
+    color += (tex2D(Scene, clamp(uv + stepUV*7, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*7, low, high)).rgb) * 0.0282343781;
+    color += (tex2D(Scene, clamp(uv + stepUV*8, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*8, low, high)).rgb) * 0.0268014766;
+    color += (tex2D(Scene, clamp(uv + stepUV*9, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*9, low, high)).rgb) * 0.0252652316;
+    color += (tex2D(Scene, clamp(uv + stepUV*10, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*10, low, high)).rgb) * 0.0236522201;
+    color += (tex2D(Scene, clamp(uv + stepUV*11, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*11, low, high)).rgb) * 0.0219889558;
+    color += (tex2D(Scene, clamp(uv + stepUV*12, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*12, low, high)).rgb) * 0.0203011839;
+    color += (tex2D(Scene, clamp(uv + stepUV*13, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*13, low, high)).rgb) * 0.0186132492;
+    color += (tex2D(Scene, clamp(uv + stepUV*14, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*14, low, high)).rgb) * 0.0169475563;
+    color += (tex2D(Scene, clamp(uv + stepUV*15, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*15, low, high)).rgb) * 0.0153241376;
+    color += (tex2D(Scene, clamp(uv + stepUV*16, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*16, low, high)).rgb) * 0.0137603369;
+    color += (tex2D(Scene, clamp(uv + stepUV*17, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*17, low, high)).rgb) * 0.0122706101;
+    color += (tex2D(Scene, clamp(uv + stepUV*18, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*18, low, high)).rgb) * 0.0108664407;
+    color += (tex2D(Scene, clamp(uv + stepUV*19, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*19, low, high)).rgb) * 0.0095563608;
+    color += (tex2D(Scene, clamp(uv + stepUV*20, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*20, low, high)).rgb) * 0.0083460662;
+    color += (tex2D(Scene, clamp(uv + stepUV*21, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*21, low, high)).rgb) * 0.0072386101;
+    color += (tex2D(Scene, clamp(uv + stepUV*22, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*22, low, high)).rgb) * 0.0062346575;
+    color += (tex2D(Scene, clamp(uv + stepUV*23, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*23, low, high)).rgb) * 0.0053327852;
+    color += (tex2D(Scene, clamp(uv + stepUV*24, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*24, low, high)).rgb) * 0.0045298064;
+    color += (tex2D(Scene, clamp(uv + stepUV*25, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*25, low, high)).rgb) * 0.0038211076;
+    color += (tex2D(Scene, clamp(uv + stepUV*26, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*26, low, high)).rgb) * 0.0032009799;
+    color += (tex2D(Scene, clamp(uv + stepUV*27, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*27, low, high)).rgb) * 0.0026629358;
+    color += (tex2D(Scene, clamp(uv + stepUV*28, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*28, low, high)).rgb) * 0.0021999992;
+    color += (tex2D(Scene, clamp(uv + stepUV*29, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*29, low, high)).rgb) * 0.0018049634;
+    color += (tex2D(Scene, clamp(uv + stepUV*30, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*30, low, high)).rgb) * 0.0014706128;
+    color += (tex2D(Scene, clamp(uv + stepUV*31, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*31, low, high)).rgb) * 0.0011899052;
+    color += (tex2D(Scene, clamp(uv + stepUV*32, low, high)).rgb + tex2D(Scene, clamp(uv - stepUV*32, low, high)).rgb) * 0.0009561157;
+    float luminance = dot(color, float3(0.2126, 0.7152, 0.0722));
+    color = lerp(luminance.xxx, color, Look.z);
+    color = lerp(color, mask.xxx, Look.w);
+    return float4(color, 1.0);
+}

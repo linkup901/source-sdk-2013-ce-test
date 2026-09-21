@@ -486,6 +486,8 @@ $Project
 		$File	"viewdebug.cpp"
 		$File	"viewdebug.h"
 		$File	"viewpostprocess.cpp"
+		$File	"bs2_tiltshift.cpp"
+		$File	"bs2_tiltshift.h"
 		$File	"viewpostprocess.h"
 		$File	"viewrender.cpp"
 		$File	"$SRCDIR\game\shared\voice_banmgr.cpp"
