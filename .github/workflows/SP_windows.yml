@@ -1,21 +1,24 @@
 name: SP_Windows_TiltShift
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - '.github/**'
       - 'sp/src/**'
+      - 'tools/tiltshift/**'
       - 'sp/game/mod_episodic/**'
   pull_request:
    paths:
       - 'sp/src/**'
+      - 'tools/tiltshift/**'
       - 'sp/game/mod_episodic/**'
       - '.github/workflows/SP_windows.yml'
 
 jobs:
   build:
     runs-on:
-      windows-latest
+      windows-2022
 
     steps:
       - name: Checkout
@@ -29,13 +32,8 @@ jobs:
       - name: Locate MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Create project
-        working-directory: sp/src
-        run: devtools/bin/vpc.exe /episodic /2013 +game /mksln bs2_tiltshift.sln
-
-      - name: Build project
-        working-directory: sp/src
-        run: msbuild bs2_tiltshift.sln /m:2 /p:Configuration=Release /p:Platform=Win32 /p:WindowsTargetPlatformVersion=10.0 /verbosity:minimal
+      - name: Build and verify DLLs
+        run: ./tools/tiltshift/build_client.ps1
 
       - name: Upload product
         uses: actions/upload-artifact@v4
@@ -47,3 +45,4 @@ jobs:
             sp/game/mod_episodic/shaders/fxc/bs2_tiltshift_ps20b.vcs
             sp/game/mod_episodic/cfg/bs2_tiltshift_*.cfg
           if-no-files-found: error
+
