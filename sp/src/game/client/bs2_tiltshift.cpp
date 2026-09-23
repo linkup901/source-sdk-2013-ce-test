@@ -6,6 +6,7 @@
 #include "materialsystem/imaterialvar.h"
 #include "materialsystem/itexture.h"
 #include "materialsystem/imaterialsystemhardwareconfig.h"
+#include "materialsystem/MaterialSystemUtil.h"
 #include "tier0/memdbgon.h"
 
 // Not archived: a map or preset opts in explicitly. Server-executable allows
@@ -40,6 +41,8 @@ void BS2_DrawTiltShift( int x, int y, int width, int height )
     // and mat_reloadallmaterials. No private render targets or stale RT sizes.
     IMaterial *material = materials->FindMaterial( "effects/bs2_tiltshift", TEXTURE_GROUP_CLIENT_EFFECTS );
     if ( !material || material->IsErrorMaterial() ) return;
+    CMaterialReference materialReference;
+    materialReference.Init( material );
     ITexture *frame = GetFullFrameFrameBufferTexture( 0 );
     if ( !frame || frame->IsError() ) return;
 
@@ -84,3 +87,4 @@ void BS2_DrawTiltShift( int x, int y, int width, int height )
     BS2_SetConstant( material, 2, 3, bs2_tiltshift_debug.GetFloat() );
     DrawScreenEffectMaterial( material, x, y, width, height );
 }
+

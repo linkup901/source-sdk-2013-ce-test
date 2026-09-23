@@ -1,6 +1,6 @@
 # BS2 tilt-shift selective focus
 
-Implementation target: `linkup901/source-sdk-2013-ce-test`, singleplayer Episodic build, base commit `de3c38ed8f14749472675837d809bab71322752b`.
+Implementation target: `linkup901/source-sdk-2013-ce-test`, maintained singleplayer `sdk2013ce` build (with Episodic support), base commit `de3c38ed8f14749472675837d809bab71322752b`.
 
 This is a screen-space miniature effect. It does not move the camera, supply an isometric movement system, or simulate depth-aware optical focus. A fixed elevated view makes it look most convincing. The same screen band can blur different parts of a tall object; this is intentional for this inexpensive-to-integrate version.
 
@@ -14,7 +14,7 @@ Two framebuffer snapshots avoid sampling a render target while writing to it. Pa
 
 ## Build
 
-Use this CE checkout, not the current Valve/master multiplayer tree. The CE project scripts already target the VS2022 v143 toolset, despite VPC's `/2013` project-format argument.
+Use this CE checkout, not the current Valve/master multiplayer tree. Generate with `/sdk2013ce`, as the repository's own build script does: the older `/episodic` target omits CE's modern-compiler fixes. The CE project scripts target the VS2022 v143 toolset, despite VPC's `/2013` project-format argument. The build script compiles individual projects in dependency order because the legacy solution generator can omit build configuration mappings.
 
 Install Visual Studio 2022 or Build Tools with C++ v143 x86/x64 tools, C++ MFC, and a Windows 10/11 SDK, as required by CE. Keep Source SDK Base 2013 Singleplayer installed in Steam.
 
@@ -25,7 +25,7 @@ Run from the repository root in PowerShell:
 .\tools\tiltshift\build_shader.ps1 -SdkBin 'C:\SteamLibrary\steamapps\common\Source SDK Base 2013 Singleplayer\bin'
 ```
 
-The compiled pixel shader is also included, so rebuilding it is needed only after changing the FXC. The shader-only build does not need Visual Studio or Perl. It creates the same single-combination worklist format as CE's `fxc_prep.pl`, then calls Valve's installed shader compiler. The client build produces both matching client and server DLLs in `sp/game/mod_episodic/bin`. Do not mix these binaries with retail HL2's engine.
+The compiled pixel shader is also included, so rebuilding it is needed only after changing the FXC. The shader-only build does not need Visual Studio or Perl. It creates the same single-combination worklist format as CE's `fxc_prep.pl`, then calls Valve's installed shader compiler. The client build produces matching DLLs in `sp/game/mod_sdk2013ce/bin`, verifies both exist, and stages them in `sp/game/mod_episodic/bin` alongside the effect assets. Do not mix these binaries with retail HL2's engine.
 
 ## Install a separate test mod
 
@@ -95,3 +95,4 @@ See `VALIDATION.md` for actual completed validation. Offline previews are labele
 The independent reviewer used Ben Thomas's [Cityshrinker photographs](https://benthomas.co/cityshrinker) (Brohattan, Baseball, Arc). Those copyrighted photographs are not bundled. The demonstration input [Aerial view of downtown Seattle](https://commons.wikimedia.org/wiki/File:Aerial_view_of_downtown_Seattle.jpg), by Dcoetzee (2009), was released into the public domain. The station input is the user's own `trainstationseq.jpg`.
 
 `preview.py` evaluates the shader's weights and mask with bilinear sampling and sRGB conversions on the CPU, including intermediate 8-bit quantization. It requires Python, numpy and Pillow. It tests kernel normalization, disabled-blur identity, flat-color preservation and sharp-band preservation. It is useful for appearance review, not a substitute for compiling C++ or running the engine.
+
