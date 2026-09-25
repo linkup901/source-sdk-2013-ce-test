@@ -7762,3 +7762,7 @@ AI_BEGIN_CUSTOM_NPC( npc_hunter, CNPC_Hunter )
 	// formula is MIN_DIST * 10000 + MAX_DIST
 
 AI_END_CUSTOM_NPC()
+
+#include "npc_blackhunter.inc"
+
+
