@@ -1,0 +1,9 @@
+// Add alongside the CE/EP2 base FGD. Requires the Crabby custom server DLL.
+@NPCClass base(BaseNPC) studio("models/crabby/crabby.mdl") = npc_crabby : "Crabby companion"
+[
+    input FollowPlayer(void) : "Follow the player and assist against targeted enemies."
+    input Wait(void) : "Stop fighting and wait at the current location."
+    input AttackTarget(string) : "Attack this named NPC. Player allies are protected."
+    input StopAttacking(void) : "Clear the current attack target."
+]
+
