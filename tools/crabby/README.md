@@ -41,8 +41,13 @@ The test BSP includes the model and textures. The companion DLL must still be in
 ## Build and rollback
 
 Source branch: `codex/crabby-companion`, PR #4 in `linkup901/source-sdk-2013-ce-test`.
-Windows artifact: `crabby-ce-windows`, build commit `ca22f2e778a797565f74bb4bb207e224dda53b2f`.
+Windows artifact: `crabby-ce-windows`, build commit `04dca75febc3f218be3fce8ac5b1638f0d9c6a2d`.
 The installed client/server pair is in the preview mod's `bin` folder. Previous files are preserved in `crabby-work/before-companion-bin`. Close the game before replacing DLLs.
 
 The original reskin package remains under `crabby-work/package`. Ordinary headcrab assets and the intro map are unchanged.
+
+The preview's missing base `cfg/skill.cfg` was restored from the SDK's `sp/game/mod_hl2/cfg/skill.cfg`. Keep this alongside the episodic skill configuration so ordinary NPCs have their intended health and damage.
+
+Verified in the CE runtime: entity/model loading, waiting, following around the test obstacle, explicit attack damage (zombie health 50 to 20), and automatic gunfire assistance after accounting for Source's feared-enemy relationships. The corrected automatic-assist test ended with Crabby killing the target after the player stopped firing. Full story integration and long playthrough testing remain future work.
+
 
