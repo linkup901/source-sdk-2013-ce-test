@@ -61,8 +61,13 @@ public:
                 trace_t tr;
                 UTIL_TraceLine( pPlayer->Weapon_ShootPosition(), pPlayer->Weapon_ShootPosition() + forward * 2048,
                                 MASK_SHOT, pPlayer, COLLISION_GROUP_NONE, &tr );
-                if ( tr.m_pEnt && tr.m_pEnt != m_hAttackTarget.Get() &&
-                     BaseClass::IRelationType( tr.m_pEnt ) == D_HT ) CommandAttack( tr.m_pEnt );
+                if ( tr.m_pEnt && tr.m_pEnt != m_hAttackTarget.Get() )
+                {
+                    // Ordinary player allies fear zombies. Fear still denotes an enemy
+                    // that Crabby should help the player fight when commanded by aim.
+                    Disposition_t relation = BaseClass::IRelationType( tr.m_pEnt );
+                    if ( relation == D_HT || relation == D_FR ) CommandAttack( tr.m_pEnt );
+                }
             }
             if ( !GetEnemy() && !IsCurSchedule( SCHED_TARGET_CHASE ) &&
                  (GetAbsOrigin() - pPlayer->GetAbsOrigin()).LengthSqr() > 160*160 )
