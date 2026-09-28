@@ -40,7 +40,7 @@ public:
         BaseClass::Spawn();
         SetModel( "models/crabby/crabby.mdl" );
         // SetModel restores model bounds; navigation and collision must share HULL_TINY.
-        SetHullSizeNormal();
+        SetHullSizeNormal(true);
         m_iHealth = m_iMaxHealth = 100;
         m_bFollowing = true;
         m_flNextAssist = 0;
