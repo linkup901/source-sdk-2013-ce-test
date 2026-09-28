@@ -5,5 +5,20 @@
     input Wait(void) : "Stop fighting and wait at the current location."
     input AttackTarget(string) : "Attack this named NPC. Player allies are protected."
     input StopAttacking(void) : "Clear the current attack target."
+    input CommandSwitch(string) : "Search for a route to this info_crabby_switch."
 ]
+
+@PointClass base(Targetname) size(-8 -8 0, 8 8 16) color(220 180 90) = info_crabby_switch : "Crabby switch approach point"
+[
+    switch_entity(target_destination) : "Visible switch entity" : "" : "Name of the solid button/prop the player aims at and presses E. Place this marker on reachable floor within 96 units of the switch center."
+    StartDisabled(choices) : "Start disabled" : 0 = [0 : "No" 1 : "Yes"]
+    input Enable(void) : "Allow commands."
+    input Disable(void) : "Disable commands; an active search reports OnSearchFailed."
+    input Reset(void) : "Allow activation again after a successful press."
+    output OnSearchStarted(void) : "Crabby accepted the command."
+    output OnPressed(void) : "Crabby arrived and pressed. Wire this to the button Press input or puzzle relay. Activator is Crabby."
+    output OnSearchFailed(void) : "No route, blocked approach, missing switch or timeout."
+    output OnSearchCancelled(void) : "Player recalled Crabby or told it to wait."
+]
+
 
