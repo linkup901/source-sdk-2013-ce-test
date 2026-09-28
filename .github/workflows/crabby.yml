@@ -1,0 +1,27 @@
+name: Crabby Windows
+on:
+  push:
+    branches: [codex/crabby-companion]
+  pull_request:
+    paths:
+      - 'sp/src/game/server/hl2/npc_crabby.inc'
+      - '.github/workflows/crabby.yml'
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build CE client and server
+        shell: pwsh
+        run: ./tools/tiltshift/build_client.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crabby-ce-windows
+          if-no-files-found: error
+          path: |
+            sp/game/mod_sdk2013ce/bin/client.dll
+            sp/game/mod_sdk2013ce/bin/server.dll
