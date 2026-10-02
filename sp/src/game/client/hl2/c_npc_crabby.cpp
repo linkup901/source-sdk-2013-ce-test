@@ -15,13 +15,19 @@
 #include "view.h"
 #include "c_baseplayer.h"
 #include "clientleafsystem.h"
+#include "iviewrender.h"
+#include "view_shared.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
-// Tunables for the first-person shoulder seat, relative to the eyes.
+// Tunables for the first-person shoulder seat, relative to the eyes, in units as
+// seen on a 16:9 screen at FOV 90 (fov_desired 90). Sideways and height are
+// rescaled to the actual screen shape and FOV, so Crabby keeps the same screen
+// position (about half of him out of view in the lower-left corner) on 4:3,
+// 16:10, 21:9 and while zoomed.
 static ConVar cl_crabby_ride_forward( "cl_crabby_ride_forward", "24", FCVAR_ARCHIVE, "Crabby shoulder seat: distance in front of the eyes." );
-static ConVar cl_crabby_ride_right( "cl_crabby_ride_right", "-27", FCVAR_ARCHIVE, "Crabby shoulder seat: sideways offset (negative is left)." );
+static ConVar cl_crabby_ride_right( "cl_crabby_ride_right", "-30", FCVAR_ARCHIVE, "Crabby shoulder seat: sideways offset (negative is left)." );
 static ConVar cl_crabby_ride_up( "cl_crabby_ride_up", "-17", FCVAR_ARCHIVE, "Crabby shoulder seat: height offset (negative is down)." );
 static ConVar cl_crabby_ride_yaw( "cl_crabby_ride_yaw", "-28", FCVAR_ARCHIVE, "Crabby shoulder seat: turn toward the screen centre (degrees)." );
 static ConVar cl_crabby_ride_pitch( "cl_crabby_ride_pitch", "10", FCVAR_ARCHIVE, "Crabby shoulder seat: tilt so its back and head face the camera (degrees)." );
@@ -107,15 +113,28 @@ private:
 	void UpdateSeat()
 	{
 		const Vector &eye = MainViewOrigin();
-		const QAngle &view = MainViewAngles();
+		const QAngle &viewAngles = MainViewAngles();
 		Vector forward, right, up;
-		AngleVectors( view, &forward, &right, &up );
+		AngleVectors( viewAngles, &forward, &right, &up );
+
+		// Keep the same screen position on any screen shape or FOV.
+		float sideScale = 1.0f, upScale = 1.0f;
+		const CViewSetup *setup = view ? view->GetPlayerViewSetup() : NULL;
+		if ( setup && setup->fov > 1.0f && setup->width > 0 && setup->height > 0 )
+		{
+			const float tanSideRef = 1.3333f;	// tan(half horizontal FOV): fov_desired 90 on 16:9
+			const float tanUpRef = 0.75f;		// tan(half vertical FOV) for the same view
+			float aspect = setup->m_flAspectRatio > 0.0f ? setup->m_flAspectRatio : (float)setup->width / (float)setup->height;
+			float tanSide = tanf( DEG2RAD( setup->fov * 0.5f ) );
+			sideScale = tanSide / tanSideRef;
+			upScale = ( tanSide / aspect ) / tanUpRef;
+		}
 
 		float bob = sinf( gpGlobals->curtime * 1.7f ) * cl_crabby_ride_bob.GetFloat();
 		m_vecSeatOrigin = eye + forward * cl_crabby_ride_forward.GetFloat()
-							  + right * cl_crabby_ride_right.GetFloat()
-							  + up * ( cl_crabby_ride_up.GetFloat() + bob );
-		m_angSeat = view;
+							  + right * ( cl_crabby_ride_right.GetFloat() * sideScale )
+							  + up * ( ( cl_crabby_ride_up.GetFloat() + bob ) * upScale );
+		m_angSeat = viewAngles;
 		m_angSeat.x += cl_crabby_ride_pitch.GetFloat();
 		m_angSeat.y += cl_crabby_ride_yaw.GetFloat();
 		m_angSeat.z = 0;
