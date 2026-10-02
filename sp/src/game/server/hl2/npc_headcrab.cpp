@@ -32,6 +32,7 @@
 #include "physics_npc_solver.h"
 #include "hl2_gamerules.h"
 #include "decals.h"
+#include "in_buttons.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -3989,3 +3990,5 @@ AI_BEGIN_CUSTOM_NPC( npc_headcrab_fast, CFastHeadcrab )
 	DECLARE_SQUADSLOT( SQUAD_SLOT_ENGAGE3 )
 	DECLARE_SQUADSLOT( SQUAD_SLOT_ENGAGE4 )
 AI_END_CUSTOM_NPC()
+
+#include "npc_crabby.inc"

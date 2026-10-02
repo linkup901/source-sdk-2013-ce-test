@@ -2989,6 +2989,7 @@ bool CHL2_Player::ClientCommand( const CCommand &args )
 // Purpose: 
 // Output : void CBasePlayer::PlayerUse
 //-----------------------------------------------------------------------------
+extern bool CrabbyTrySwitchCommand(CBasePlayer *player);
 void CHL2_Player::PlayerUse ( void )
 {
 	// Was use pressed or released?
@@ -3004,6 +3005,7 @@ void CHL2_Player::PlayerUse ( void )
 		}
 		else
 		{
+			if (CrabbyTrySwitchCommand(this)) return;
 			if ( m_afPhysicsFlags & PFLAG_DIROVERRIDE )
 			{
 				m_afPhysicsFlags &= ~PFLAG_DIROVERRIDE;
