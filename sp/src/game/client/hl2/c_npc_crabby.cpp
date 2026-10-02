@@ -21,7 +21,7 @@
 
 // Tunables for the first-person shoulder seat, relative to the eyes.
 static ConVar cl_crabby_ride_forward( "cl_crabby_ride_forward", "24", FCVAR_ARCHIVE, "Crabby shoulder seat: distance in front of the eyes." );
-static ConVar cl_crabby_ride_right( "cl_crabby_ride_right", "-15", FCVAR_ARCHIVE, "Crabby shoulder seat: sideways offset (negative is left)." );
+static ConVar cl_crabby_ride_right( "cl_crabby_ride_right", "-27", FCVAR_ARCHIVE, "Crabby shoulder seat: sideways offset (negative is left)." );
 static ConVar cl_crabby_ride_up( "cl_crabby_ride_up", "-17", FCVAR_ARCHIVE, "Crabby shoulder seat: height offset (negative is down)." );
 static ConVar cl_crabby_ride_yaw( "cl_crabby_ride_yaw", "-28", FCVAR_ARCHIVE, "Crabby shoulder seat: turn toward the screen centre (degrees)." );
 static ConVar cl_crabby_ride_pitch( "cl_crabby_ride_pitch", "10", FCVAR_ARCHIVE, "Crabby shoulder seat: tilt so its back and head face the camera (degrees)." );
