@@ -48,7 +48,7 @@ enum	// block alignment (about the x position)
 enum
 {
 	BS2SKIP_DISARM = 0,
-	BS2SKIP_ARM = 1,		// float hint delay (<0: no hint), short flags (1 = only while a point_viewcontrol is the view)
+	BS2SKIP_ARM = 1,		// float hint delay (< 0: no hint), string hint text (%use% = the key bound to +use)
 };
 
 // ---- BS2Credits: byte cmd

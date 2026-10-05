@@ -1,0 +1,21 @@
+// Black Stasis 2, Phase 2 - A3. logic_skipkey (server/bs2/logic_skipkey.cpp, HUD: client/bs2/bs2_hud_skipkey.cpp)
+@PointClass base(Targetname) iconsprite("editor/logic_relay.vmt") = logic_skipkey : "Use-key skip for cinematics. While enabled, pressing +use (E) fires OnPressedUse and the 'Press E to skip' hint fades in after Hint delay. No cheats needed. Works while a point_viewcontrol has the player frozen."
+[
+	startenabled(choices) : "Start enabled" : 0 =
+	[
+		0 : "No (use the Enable input)"
+		1 : "Yes"
+	]
+	requirecamera(choices) : "Only during a point_viewcontrol" : 1 : "The press counts only while a point_viewcontrol is the player's view." =
+	[
+		0 : "No"
+		1 : "Yes"
+	]
+	hintdelay(float) : "Hint delay" : 3 : "Seconds after Enable until 'Press E to skip' fades in at the bottom right. -1 = no hint."
+	hinttext(string) : "Hint text" : "Press %use% to skip" : "%use% becomes the key bound to +use."
+
+	input Enable(void) : "Arm it (the use key now counts, the hint is scheduled)."
+	input Disable(void) : "Disarm it and hide the hint."
+
+	output OnPressedUse(void) : "The use key went down while armed. The entity disarms itself. Wire to env_fade (0.3 s) -> changelevel / the cut to gameplay."
+]

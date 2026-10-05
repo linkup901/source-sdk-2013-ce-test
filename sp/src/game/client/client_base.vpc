@@ -491,6 +491,7 @@ $Project
 		$File	"bs2\bs2_hud.h"
 		$File	"bs2\bs2_hud_titlecard.cpp"
 		$File	"bs2\bs2_hud_credits.cpp"
+		$File	"bs2\bs2_hud_skipkey.cpp"
 		$File	"viewpostprocess.h"
 		$File	"viewrender.cpp"
 		$File	"$SRCDIR\game\shared\voice_banmgr.cpp"

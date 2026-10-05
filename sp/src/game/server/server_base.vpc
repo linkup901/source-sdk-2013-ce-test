@@ -444,6 +444,7 @@ $Project
 		$File	"logicrelay.cpp"
 		$File	"bs2\point_bs2_titlecard.cpp"
 		$File	"bs2\point_bs2_credits.cpp"
+		$File	"bs2\logic_skipkey.cpp"
 		$File	"mapentities.cpp"
 		$File	"$SRCDIR\game\shared\mapentities_shared.cpp"
 		$File	"maprules.cpp"
