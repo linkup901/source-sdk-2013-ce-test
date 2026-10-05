@@ -18,6 +18,8 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+static ConVar bs2_skip_debug( "bs2_skip_debug", "0", 0, "Print the state of the skip key detector twice a second" );
+
 class CHudBS2SkipKey : public CHudElement, public vgui::Panel
 {
 	DECLARE_CLASS_SIMPLE( CHudBS2SkipKey, vgui::Panel );
@@ -92,6 +94,16 @@ void CHudBS2SkipKey::ProcessInput( void )
 
 	const bool bDown = ( input->GetButtonBits( 0 ) & IN_USE ) != 0;
 
+	if ( bs2_skip_debug.GetBool() )
+	{
+		static float s_flNext = 0.0f;
+		if ( gpGlobals->curtime >= s_flNext )
+		{
+			s_flNext = gpGlobals->curtime + 0.5f;
+			ConMsg( "bs2 skip: armed %d, wait for release %d, use key down %d\n", (int)m_bArmed, (int)m_bWaitRelease, (int)bDown );
+		}
+	}
+
 	if ( m_bWaitRelease )
 	{
 		if ( !bDown )
@@ -103,6 +115,8 @@ void CHudBS2SkipKey::ProcessInput( void )
 	{
 		m_bArmed = false;
 		BS2_Hint_Hide();
+		if ( bs2_skip_debug.GetBool() )
+			ConMsg( "bs2 skip: use key pressed, sending bs2_skip\n" );
 		engine->ClientCmd_Unrestricted( "bs2_skip" );
 	}
 }
@@ -119,6 +133,9 @@ void CHudBS2SkipKey::MsgFunc_BS2Skip( bf_read &msg )
 
 		m_bArmed = true;
 		m_bWaitRelease = ( input->GetButtonBits( 0 ) & IN_USE ) != 0;
+
+		if ( bs2_skip_debug.GetBool() )
+			ConMsg( "bs2 skip: armed (hint in %.1f s, key already down %d)\n", flDelay, (int)m_bWaitRelease );
 
 		if ( flDelay >= 0.0f )
 		{

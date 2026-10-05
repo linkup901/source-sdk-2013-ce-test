@@ -440,9 +440,8 @@ void CHudBS2Veins::DrawVeins( float flLevel, float flThrob, int nScreenW, int nS
 
 	if ( m_nWhiteTexture == 0 )
 	{
-		m_nWhiteTexture = surface()->CreateNewTextureID( true );
-		unsigned char white[4] = { 255, 255, 255, 255 };
-		surface()->DrawSetTextureRGBA( m_nWhiteTexture, white, 1, 1, 0, false );
+		m_nWhiteTexture = surface()->CreateNewTextureID();
+		surface()->DrawSetTextureFile( m_nWhiteTexture, "vgui/white", true, false );
 	}
 	surface()->DrawSetTexture( m_nWhiteTexture );
 
@@ -472,6 +471,10 @@ void CHudBS2Veins::DrawVeins( float flLevel, float flThrob, int nScreenW, int nS
 		// dark body, then a thin red core
 		DrawQuad( x0, y0, x1, y1, flHalf * 1.35f, 14, 0, 4, (int)( 170 * flOverall ) );
 		DrawQuad( x0, y0, x1, y1, flHalf * 0.55f, 120 + (int)( 50 * flThrob ), 6, 16, (int)( 210 * flOverall ) );
+
+		// the same line as plain vgui lines (always drawn, whatever the polygon path does)
+		surface()->DrawSetColor( 150 + (int)( 40 * flThrob ), 8, 18, (int)( 230 * flOverall ) );
+		surface()->DrawLine( (int)x0, (int)y0, (int)x1, (int)y1 );
 	}
 }
 

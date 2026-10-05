@@ -250,11 +250,19 @@ void CHudBS2TitleCard::StartNext( void )
 		return;
 	}
 
+	// two black-background cards in a row: the black stays, the next one does not fade it in again
+	const bool bPrevBackground = m_bShowing && ( m_Current.nFlags & BS2CARDF_BLACKBG );
+
 	m_Current = m_Queue[0];
 	m_Queue.Remove( 0 );
 	m_Current.flStart = gpGlobals->curtime;
 	m_Current.flHideStart = -1.0f;
 	m_bShowing = true;
+
+	if ( bPrevBackground && ( m_Current.nFlags & BS2CARDF_BLACKBG ) )
+	{
+		m_Current.flBgFade = 0.0f;
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -561,24 +569,34 @@ void CHudBS2TitleCard::DrawBlock( const BS2CardBlock_t &block, float flAlpha, in
 
 	const int a = clamp( (int)( block.a * flAlpha ), 0, 255 );
 	surface()->DrawSetTextFont( hFont );
-	surface()->DrawSetTextColor( block.r, block.g, block.b, a );
 
-	int y = (int)( block.flY * nScreenH ) - nBlockTall / 2;
-	for ( int i = 0; i < nLines; i++ )
+	// the hint gets a dark shadow first: it has to be readable on a bright wall too
+	for ( int nPass = bHint ? 0 : 1; nPass < 2; nPass++ )
 	{
-		int nW, nH;
-		surface()->GetTextSize( hFont, wszLines[i], nW, nH );
+		if ( nPass == 0 )
+			surface()->DrawSetTextColor( 0, 0, 0, (int)( a * 0.85f ) );
+		else
+			surface()->DrawSetTextColor( block.r, block.g, block.b, a );
 
-		int x = (int)( block.flX * nScreenW );
-		if ( block.nAlign == BS2ALIGN_CENTER )
-			x -= nW / 2;
-		else if ( block.nAlign == BS2ALIGN_RIGHT )
-			x -= nW;
+		const int nShadow = ( nPass == 0 ) ? MAX( 1, nScreenH / 540 ) : 0;
+		int y = (int)( block.flY * nScreenH ) - nBlockTall / 2;
 
-		surface()->DrawSetTextPos( x, y );
-		surface()->DrawUnicodeString( wszLines[i] );
+		for ( int i = 0; i < nLines; i++ )
+		{
+			int nW, nH;
+			surface()->GetTextSize( hFont, wszLines[i], nW, nH );
 
-		y += nLineStep;
+			int x = (int)( block.flX * nScreenW );
+			if ( block.nAlign == BS2ALIGN_CENTER )
+				x -= nW / 2;
+			else if ( block.nAlign == BS2ALIGN_RIGHT )
+				x -= nW;
+
+			surface()->DrawSetTextPos( x + nShadow, y + nShadow );
+			surface()->DrawUnicodeString( wszLines[i] );
+
+			y += nLineStep;
+		}
 	}
 }
 
@@ -639,7 +657,9 @@ void CHudBS2TitleCard::Paint( void )
 			if ( m_Current.nFlags & BS2CARDF_BLACKBG )
 			{
 				const float flBg = ( m_Current.flBgFade > 0.0f ) ? clamp( flT / m_Current.flBgFade, 0.0f, 1.0f ) : 1.0f;
-				surface()->DrawSetColor( 0, 0, 0, (int)( 255.0f * flBg * flOpacity ) );
+				// the black stays solid while the text fades out if another black-background card is waiting
+				const bool bNextHasBackground = ( m_Queue.Count() > 0 && ( m_Queue[0].nFlags & BS2CARDF_BLACKBG ) );
+				surface()->DrawSetColor( 0, 0, 0, (int)( 255.0f * flBg * ( bNextHasBackground ? 1.0f : flOpacity ) ) );
 				surface()->DrawFilledRect( 0, 0, nScreenW, nScreenH );
 			}
 
