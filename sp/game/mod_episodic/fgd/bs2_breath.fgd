@@ -1,0 +1,9 @@
+// Black Stasis 2, Phase 2 - A4. Black breath mist (server/bs2/bs2_breath.cpp; particles/bs2_breath.pcf made by tools/gen_breath_pcf.py).
+//
+// npc_blackhunter and npc_combine_s (model combine_corrupt.mdl) have no FGD change: add these on the Entity tab with SmartEdit off.
+//
+//   KEYVALUE   breathmist    1 (default) / 0   0 = no breath mist (scripted scenes where the mist is wrong)
+//   INPUTS     EnableBreathMist, DisableBreathMist, SetBreathLarge (the foggy-forest close-up: bigger, slower, thicker), SetBreathSmall
+//
+// Black Hunter: wisps at the attachments top_eye and bottom_eye. Corrupted Combine: at the attachment 'eyes' (the mask). One breath every ~4 s.
+// The bs2_breath_emitter entities the NPCs create are server-only and remove themselves with the NPC.

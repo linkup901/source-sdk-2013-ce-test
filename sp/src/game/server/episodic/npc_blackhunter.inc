@@ -1,15 +1,19 @@
 // Included after CNPC_Hunter is defined; retains the standard Hunter AI.
+#include "bs2/bs2_breath.h"
+
 class CNPC_BlackHunter : public CNPC_Hunter
 {
     DECLARE_CLASS( CNPC_BlackHunter, CNPC_Hunter );
     DECLARE_DATADESC();
 public:
+    CNPC_BlackHunter() : m_bBreathMist( true ) {}
     void Precache() OVERRIDE
     {
         BaseClass::Precache();
         PrecacheModel( "models/blackhunter/hunter.mdl" );
         PrecacheModel( "sprites/redglow1.vmt" );
         PrecacheModel( "sprites/laserbeam.vmt" );
+        BS2Breath_Precache();
     }
     void Spawn() OVERRIDE
     {
@@ -43,7 +47,17 @@ public:
                 m_hEyeEffects[i*2+1] = trail;
             }
         }
+        // black breath mist at the two head attachments (keyvalue breathmist 0 = off for scripted scenes)
+        if ( m_bBreathMist )
+        {
+            BS2Breath_Start( this, "top_eye" );
+            BS2Breath_Start( this, "bottom_eye" );
+        }
     }
+    void InputEnableBreathMist( inputdata_t &inputdata ) { m_bBreathMist = true; BS2Breath_SetEnabled( this, true ); }
+    void InputDisableBreathMist( inputdata_t &inputdata ) { m_bBreathMist = false; BS2Breath_SetEnabled( this, false ); }
+    void InputSetBreathLarge( inputdata_t &inputdata ) { BS2Breath_SetLarge( this, true ); }
+    void InputSetBreathSmall( inputdata_t &inputdata ) { BS2Breath_SetLarge( this, false ); }
     void RemoveEyeEffects()
     {
         for ( int i = 0; i < 4; ++i )
@@ -55,6 +69,7 @@ public:
     void Event_Killed( const CTakeDamageInfo &info ) OVERRIDE
     {
         RemoveEyeEffects();
+        BS2Breath_Stop( this );
         BaseClass::Event_Killed( info );
     }
     void UpdateOnRemove() OVERRIDE
@@ -64,10 +79,16 @@ public:
     }
 private:
     EHANDLE m_hEyeEffects[4];
+    bool m_bBreathMist;
 };
 
 LINK_ENTITY_TO_CLASS( npc_blackhunter, CNPC_BlackHunter );
 BEGIN_DATADESC( CNPC_BlackHunter )
     DEFINE_ARRAY( m_hEyeEffects, FIELD_EHANDLE, 4 ),
+    DEFINE_KEYFIELD( m_bBreathMist, FIELD_BOOLEAN, "breathmist" ),
+    DEFINE_INPUTFUNC( FIELD_VOID, "EnableBreathMist", InputEnableBreathMist ),
+    DEFINE_INPUTFUNC( FIELD_VOID, "DisableBreathMist", InputDisableBreathMist ),
+    DEFINE_INPUTFUNC( FIELD_VOID, "SetBreathLarge", InputSetBreathLarge ),
+    DEFINE_INPUTFUNC( FIELD_VOID, "SetBreathSmall", InputSetBreathSmall ),
 END_DATADESC()
 

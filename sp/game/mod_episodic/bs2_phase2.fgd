@@ -2,3 +2,4 @@
 @include "fgd/bs2_titlecard.fgd"
 @include "fgd/bs2_credits.fgd"
 @include "fgd/bs2_skipkey.fgd"
+@include "fgd/bs2_breath.fgd"

@@ -23,6 +23,8 @@ class CNPC_CombineS : public CNPC_Combine
 #endif
 
 public: 
+	CNPC_CombineS() : m_bBreathMist( true ) {}
+
 	void		Spawn( void );
 	void		Precache( void );
 	void		DeathSound( const CTakeDamageInfo &info );
@@ -43,6 +45,13 @@ public:
 	bool		IsHeavyDamage( const CTakeDamageInfo &info );
 
 	virtual	bool		AllowedToIgnite( void ) { return true; }
+
+	// Black Stasis 2 (Phase 2 A4): black breath mist on the corrupted Combine's mask (combine_corrupt.mdl, attachment 'eyes'); keyvalue breathmist 0 = off
+	void		InputEnableBreathMist( inputdata_t &inputdata );
+	void		InputDisableBreathMist( inputdata_t &inputdata );
+	void		InputSetBreathLarge( inputdata_t &inputdata );
+	void		InputSetBreathSmall( inputdata_t &inputdata );
+	bool		m_bBreathMist;
 
 private:
 	bool		ShouldHitPlayer( const Vector &targetDir, float targetDist );

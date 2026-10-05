@@ -24,6 +24,7 @@
 #include "hl2_gamerules.h"
 #include "gameweaponmanager.h"
 #include "vehicle_base.h"
+#include "bs2/bs2_breath.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -79,6 +80,12 @@ void CNPC_CombineS::Spawn( void )
 
 	BaseClass::Spawn();
 
+	// Black Stasis 2: the corrupted Combine breathes black mist through its mask
+	if ( m_bBreathMist && Q_stristr( STRING( GetModelName() ), "combine_corrupt" ) )
+	{
+		BS2Breath_Start( this, "eyes" );
+	}
+
 #if HL2_EPISODIC
 	if (m_iUseMarch && !HasSpawnFlags(SF_NPC_START_EFFICIENT))
 	{
@@ -116,8 +123,15 @@ void CNPC_CombineS::Precache()
 	UTIL_PrecacheOther( "weapon_frag" );
 	UTIL_PrecacheOther( "item_ammo_ar2_altfire" );
 
+	BS2Breath_Precache();
+
 	BaseClass::Precache();
 }
+
+void CNPC_CombineS::InputEnableBreathMist( inputdata_t &inputdata ) { m_bBreathMist = true; BS2Breath_SetEnabled( this, true ); }
+void CNPC_CombineS::InputDisableBreathMist( inputdata_t &inputdata ) { m_bBreathMist = false; BS2Breath_SetEnabled( this, false ); }
+void CNPC_CombineS::InputSetBreathLarge( inputdata_t &inputdata ) { BS2Breath_SetLarge( this, true ); }
+void CNPC_CombineS::InputSetBreathSmall( inputdata_t &inputdata ) { BS2Breath_SetLarge( this, false ); }
 
 
 void CNPC_CombineS::DeathSound( const CTakeDamageInfo &info )
@@ -426,6 +440,13 @@ Activity CNPC_CombineS::NPC_TranslateActivity( Activity eNewActivity )
 BEGIN_DATADESC( CNPC_CombineS )
 
 	DEFINE_KEYFIELD( m_iUseMarch, FIELD_INTEGER, "usemarch" ),
+
+	// Black Stasis 2: breath mist (Phase 2 A4)
+	DEFINE_KEYFIELD( m_bBreathMist, FIELD_BOOLEAN, "breathmist" ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EnableBreathMist", InputEnableBreathMist ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DisableBreathMist", InputDisableBreathMist ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "SetBreathLarge", InputSetBreathLarge ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "SetBreathSmall", InputSetBreathSmall ),
 
 END_DATADESC()
 #endif
