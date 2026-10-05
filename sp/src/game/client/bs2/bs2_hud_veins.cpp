@@ -249,7 +249,7 @@ void CHudBS2Veins::Update( void )
 		if ( m_nLastHealth >= 0 && nHealth < m_nLastHealth && nHealth > 0 )
 		{
 			const float flDrop = (float)( m_nLastHealth - nHealth );
-			m_flDamageLevel = MIN( 1.0f, m_flDamageLevel + 0.10f + flDrop * 0.012f );
+			m_flDamageLevel = MIN( 1.0f, m_flDamageLevel + 0.18f + flDrop * 0.015f );
 		}
 		m_nLastHealth = nHealth;
 
@@ -266,7 +266,7 @@ void CHudBS2Veins::Update( void )
 		m_bDead = bDead;
 	}
 
-	m_flDamageLevel = MAX( 0.0f, m_flDamageLevel - flDt * 0.22f );
+	m_flDamageLevel = MAX( 0.0f, m_flDamageLevel - flDt * 0.12f );
 
 	// the steady level of the entity
 	if ( m_flSteadyTime > 0.0f )
