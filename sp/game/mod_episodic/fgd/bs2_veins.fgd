@@ -1,0 +1,13 @@
+// Black Stasis 2, Phase 2 - A5. env_bs2_veins (server/bs2/env_bs2_veins.cpp, HUD: client/bs2/bs2_hud_veins.cpp)
+// The damage veins (health drops, low health), the death eyelids (3 s) and a weaker red flash (cvar bs2_damage_flash_scale 0.45) need no entity.
+@PointClass base(Targetname) iconsprite("editor/env_fade.vmt") = env_bs2_veins : "Black Stasis 2 vein overlay for scripted moments: a pulse (the collapses in the power station and the factory night) or a steady level."
+[
+	strength(float) : "Pulse strength" : 0.9 : "0..1: how far the veins crawl in at the peak of Pulse."
+	duration(float) : "Pulse duration" : 3 : "Seconds from the start to the end of the pulse (up in the first fifth, down slowly)."
+	ramptime(float) : "SetLevel ramp time" : 2 : "Seconds SetLevel takes to get to its value."
+
+	input Pulse(void) : "One pulse with the strength and duration above."
+	input PulseStrong(void) : "One pulse at full strength."
+	input SetLevel(float) : "Steady vein level 0..1 (0 = none), reached over the ramp time."
+	input Clear(void) : "Veins and pulses off at once."
+]

@@ -27,6 +27,9 @@ using namespace vgui;
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+// Black Stasis 2 (Phase 2 A5): the veins carry the damage, the red flash is weaker (1 = stock)
+static ConVar bs2_damage_flash_scale( "bs2_damage_flash_scale", "0.45", FCVAR_ARCHIVE, "Scale of the red damage flash (1 = stock HL2)", true, 0.0f, true, 1.0f );
+
 
 //-----------------------------------------------------------------------------
 // Purpose: HDU Damage indication
@@ -168,6 +171,7 @@ bool CHudDamageIndicator::ShouldDraw( void )
 //-----------------------------------------------------------------------------
 void CHudDamageIndicator::DrawDamageIndicator(int side)
 {
+	const float flFlashScale = bs2_damage_flash_scale.GetFloat();
 	CMatRenderContextPtr pRenderContext( materials );
 	IMesh *pMesh = pRenderContext->GetDynamicMesh( true, NULL, NULL, m_WhiteAdditiveMaterial );
 
@@ -215,22 +219,22 @@ void CHudDamageIndicator::DrawDamageIndicator(int side)
 		x1 = GetWide() - x1;
 		x2 = GetWide() - x2;
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[0]);
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[0]);
 		meshBuilder.TexCoord2f( 0,0,0 );
 		meshBuilder.Position3f( x1, y[0], 0 );
 		meshBuilder.AdvanceVertex();
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[3] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[3] );
 		meshBuilder.TexCoord2f( 0,0,1 );
 		meshBuilder.Position3f( x1, y[3], 0 );
 		meshBuilder.AdvanceVertex();
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[2] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[2] );
 		meshBuilder.TexCoord2f( 0,1,1 );
 		meshBuilder.Position3f( x2, y[2], 0 );
 		meshBuilder.AdvanceVertex();
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[1] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[1] );
 		meshBuilder.TexCoord2f( 0,1,0 );
 		meshBuilder.Position3f( x2, y[1], 0 );
 		meshBuilder.AdvanceVertex();
@@ -246,22 +250,22 @@ void CHudDamageIndicator::DrawDamageIndicator(int side)
 			r = m_DmgColorLeft[0], g = m_DmgColorLeft[1], b = m_DmgColorLeft[2], a = m_DmgColorLeft[3];
 		}
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[0] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[0] );
 		meshBuilder.TexCoord2f( 0,0,0 );
 		meshBuilder.Position3f( x1, y[0], 0 );
 		meshBuilder.AdvanceVertex();
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[1] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[1] );
 		meshBuilder.TexCoord2f( 0,1,0 );
 		meshBuilder.Position3f( x2, y[1], 0 );
 		meshBuilder.AdvanceVertex();
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[2] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[2] );
 		meshBuilder.TexCoord2f( 0,1,1 );
 		meshBuilder.Position3f( x2, y[2], 0 );
 		meshBuilder.AdvanceVertex();
 
-		meshBuilder.Color4ub( r, g, b, a * alpha[3] );
+		meshBuilder.Color4ub( r, g, b, a * flFlashScale * alpha[3] );
 		meshBuilder.TexCoord2f( 0,0,1 );
 		meshBuilder.Position3f( x1, y[3], 0 );
 		meshBuilder.AdvanceVertex();
@@ -281,7 +285,7 @@ void CHudDamageIndicator::DrawFullscreenDamageIndicator()
 
 	CMeshBuilder meshBuilder;
 	meshBuilder.Begin( pMesh, MATERIAL_QUADS, 1 );
-	int r = m_DmgFullscreenColor[0], g = m_DmgFullscreenColor[1], b = m_DmgFullscreenColor[2], a = m_DmgFullscreenColor[3];
+	int r = m_DmgFullscreenColor[0], g = m_DmgFullscreenColor[1], b = m_DmgFullscreenColor[2], a = (int)( m_DmgFullscreenColor[3] * bs2_damage_flash_scale.GetFloat() );
 
 	float wide = GetWide(), tall = GetTall();
 
