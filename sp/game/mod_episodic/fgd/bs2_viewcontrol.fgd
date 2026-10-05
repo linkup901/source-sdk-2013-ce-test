@@ -1,0 +1,11 @@
+// Black Stasis 2, Phase 2 - A7. Camera bob for point_viewcontrol (server/triggers.cpp, CTriggerCamera)
+//
+// point_viewcontrol keeps its FGD entry; add these on the Entity tab with SmartEdit off (all default 0 = no bob):
+//
+//   bobamplitude  float   up/down travel of one step in units (a walking cameraman: 1.5 - 3; a runner: 3 - 5). The sideways sway is about half.
+//   bobangle      float   degrees of pitch / roll (0.5 - 1.5 walking, up to 3 running)
+//   bobfrequency  float   steps per second (1.8 default; a run is 2.6 - 3.2)
+//   bobnoise      float   0..1 irregular shake on top of the rhythm (0.2 - 0.6)
+//
+// The bob is added after the path / follow logic and taken off before it runs again, so it never changes where the camera goes. It also runs when the camera
+// has no target to follow. Typical bodycam run: bobamplitude 4, bobangle 1.8, bobfrequency 2.8, bobnoise 0.45.

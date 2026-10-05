@@ -2781,6 +2781,11 @@ public:
 	void FollowTarget( void );
 	void Move(void);
 
+	// Black Stasis 2 (Phase 2 A7): a camera-bob layer on top of the path / follow motion (bodycam run). Off while BobAmplitude and BobAngle are 0.
+	void BobThink( void );
+	void ApplyBob( void );
+	void RemoveBob( void );
+
 	// Always transmit to clients so they know where to move the view to
 	virtual int UpdateTransmitState();
 	
@@ -2826,6 +2831,15 @@ private:
 	int   m_nPlayerButtons;
 	int m_nOldTakeDamage;
 
+	// camera bob (A7)
+	float m_flBobAmplitude;		// units of up/down travel per step; the sway is about half of it
+	float m_flBobFrequency;		// steps per second
+	float m_flBobNoise;			// 0..1 irregular shake added to the rhythm
+	float m_flBobAngle;			// degrees of pitch / roll
+	float m_flBobStart;
+	Vector m_vecBobApplied;		// what is added to the origin / angles right now (taken off before the path logic and put back after)
+	QAngle m_angBobApplied;
+
 private:
 	COutputEvent m_OnEndFollow;
 };
@@ -2864,12 +2878,21 @@ BEGIN_DATADESC( CTriggerCamera )
 	DEFINE_FIELD( m_nPlayerButtons, FIELD_INTEGER ),
 	DEFINE_FIELD( m_nOldTakeDamage, FIELD_INTEGER ),
 
+	DEFINE_KEYFIELD( m_flBobAmplitude, FIELD_FLOAT, "bobamplitude" ),
+	DEFINE_KEYFIELD( m_flBobFrequency, FIELD_FLOAT, "bobfrequency" ),
+	DEFINE_KEYFIELD( m_flBobNoise, FIELD_FLOAT, "bobnoise" ),
+	DEFINE_KEYFIELD( m_flBobAngle, FIELD_FLOAT, "bobangle" ),
+	DEFINE_FIELD( m_flBobStart, FIELD_TIME ),
+	DEFINE_FIELD( m_vecBobApplied, FIELD_VECTOR ),
+	DEFINE_FIELD( m_angBobApplied, FIELD_VECTOR ),
+
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 
 	// Function Pointers
 	DEFINE_FUNCTION( FollowTarget ),
+	DEFINE_FUNCTION( BobThink ),
 	DEFINE_OUTPUT( m_OnEndFollow, "OnEndFollow" ),
 
 END_DATADESC()
@@ -2889,6 +2912,12 @@ void CTriggerCamera::Spawn( void )
 	m_state = USE_OFF;
 	
 	m_initialSpeed = m_flSpeed;
+
+	if ( m_flBobFrequency <= 0.0f )
+		m_flBobFrequency = 1.8f;
+
+	m_vecBobApplied = vec3_origin;
+	m_angBobApplied = vec3_angle;
 
 	if ( m_acceleration == 0 )
 		m_acceleration = 500;
@@ -3135,6 +3164,15 @@ void CTriggerCamera::Enable( void )
 	m_moveDistance = 0;
 	Move();
 
+	// camera bob: from now on, also when there is no target to follow (FollowTarget does it then)
+	m_flBobStart = gpGlobals->curtime;
+	ApplyBob();
+	if ( !m_hTarget && ( m_flBobAmplitude > 0.0f || m_flBobAngle > 0.0f ) )
+	{
+		SetThink( &CTriggerCamera::BobThink );
+		SetNextThink( gpGlobals->curtime );
+	}
+
 	DispatchUpdateTransmitState();
 }
 
@@ -3143,6 +3181,8 @@ void CTriggerCamera::Enable( void )
 //-----------------------------------------------------------------------------
 void CTriggerCamera::Disable( void )
 {
+	RemoveBob();
+
 	if ( m_hPlayer && m_hPlayer->IsAlive() )
 	{
 		if ( HasSpawnFlags( SF_CAMERA_PLAYER_NOT_SOLID ) )
@@ -3211,6 +3251,8 @@ void CTriggerCamera::FollowTarget( )
 		Disable();
 		return;
 	}
+
+	RemoveBob();
 
 	QAngle vecGoal;
 	if ( m_iAttachmentIndex )
@@ -3281,6 +3323,64 @@ void CTriggerCamera::FollowTarget( )
 	SetNextThink( gpGlobals->curtime );
 
 	Move();
+	ApplyBob();
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: camera bob (Black Stasis 2 Phase 2 A7). The offsets are added to the camera's origin and angles after the path / follow logic has run and taken off again
+// before it runs next, so they never change where the camera is going. Position: up/down twice per stride with a slower sideways sway; angles: pitch and roll.
+//-----------------------------------------------------------------------------
+void CTriggerCamera::RemoveBob( void )
+{
+	if ( m_vecBobApplied == vec3_origin && m_angBobApplied == vec3_angle )
+		return;
+
+	SetAbsOrigin( GetAbsOrigin() - m_vecBobApplied );
+	SetAbsAngles( GetAbsAngles() - m_angBobApplied );
+	m_vecBobApplied = vec3_origin;
+	m_angBobApplied = vec3_angle;
+}
+
+void CTriggerCamera::ApplyBob( void )
+{
+	// Move() can end the camera (SF_CAMERA_PLAYER_INTERRUPT calls Disable): no bob on a camera that is off
+	if ( m_state != USE_ON )
+		return;
+
+	if ( m_flBobAmplitude <= 0.0f && m_flBobAngle <= 0.0f )
+		return;
+
+	const float t = gpGlobals->curtime - m_flBobStart;
+	const float w = 2.0f * M_PI * MAX( m_flBobFrequency, 0.05f );
+	const float flNoise = clamp( m_flBobNoise, 0.0f, 1.0f );
+
+	// the rhythm, and an irregular part from sines that never line up
+	const float flStep = sinf( w * t ) + 0.35f * sinf( 2.0f * w * t + 1.3f );
+	const float flSway = sinf( 0.5f * w * t + 0.7f );
+	const float n1 = 0.5f * sinf( t * 2.31f + 0.7f ) + 0.3f * sinf( t * 4.77f + 2.1f ) + 0.2f * sinf( t * 9.13f + 4.4f );
+	const float n2 = 0.5f * sinf( t * 1.93f + 1.9f ) + 0.3f * sinf( t * 5.51f + 0.3f ) + 0.2f * sinf( t * 8.41f + 3.2f );
+
+	Vector vecForward, vecRight, vecUp;
+	AngleVectors( GetAbsAngles() - m_angBobApplied, &vecForward, &vecRight, &vecUp );
+
+	Vector vecBob = Vector( 0, 0, 1 ) * ( m_flBobAmplitude * ( 0.6f * flStep + 0.6f * flNoise * n1 ) )
+				  + vecRight * ( m_flBobAmplitude * ( 0.45f * flSway + 0.5f * flNoise * n2 ) );
+	QAngle angBob( m_flBobAngle * ( 0.5f * flStep + 0.7f * flNoise * n2 ),
+				   m_flBobAngle * 0.25f * flSway,
+				   m_flBobAngle * ( 0.8f * flSway + 0.6f * flNoise * n1 ) );
+
+	SetAbsOrigin( GetAbsOrigin() + vecBob - m_vecBobApplied );
+	SetAbsAngles( GetAbsAngles() + angBob - m_angBobApplied );
+	m_vecBobApplied = vecBob;
+	m_angBobApplied = angBob;
+}
+
+// no target to follow: nothing else thinks for this camera, but the bob has to move
+void CTriggerCamera::BobThink( void )
+{
+	RemoveBob();
+	ApplyBob();
+	SetNextThink( gpGlobals->curtime );
 }
 
 void CTriggerCamera::Move()
