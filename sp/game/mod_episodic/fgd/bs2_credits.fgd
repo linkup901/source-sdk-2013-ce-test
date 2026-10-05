@@ -1,0 +1,22 @@
+// Black Stasis 2, Phase 2 - A2. point_bs2_credits (server/bs2/point_bs2_credits.cpp, HUD: client/bs2/bs2_hud_credits.cpp)
+@PointClass base(Targetname) iconsprite("editor/env_message.vmt") = point_bs2_credits : "Black Stasis 2 credits roll: credits.txt (mod folder) scrolls up over black. Lines: no indent = heading, 4 spaces = entry, 8 = detail; '(' and '#' lines and 'Per ' lines are not shown; a line [roll] makes the roll use only what follows it."
+[
+	file(string) : "Text file" : "credits.txt" : "Relative to the mod folder."
+	speed(float) : "Scroll speed" : 55 : "Pixels per second at 1080 lines (a 90 s roll is about 60-70)."
+	fadein(float) : "Black fade in" : 2 : "Seconds the screen takes to go black; the first line enters when it is half black."
+	holdafter(float) : "Hold after the roll" : 3 : "Seconds on black after the last line, then OnFinished."
+	musiccuedelay(float) : "Music cue delay" : -1 : "Seconds after Start that OnMusicCue fires (play the theme from it). -1 = only the Cue input."
+	stopatend(choices) : "Last line stays" : 0 : "The last line comes to rest in the middle of the screen and the hold time runs from there." =
+	[
+		0 : "No (scrolls out)"
+		1 : "Yes"
+	]
+
+	input Start(void) : "Start the roll."
+	input Stop(void) : "Stop it and clear the screen (no OnFinished)."
+	input Cue(void) : "Fire OnMusicCue now."
+
+	output OnStarted(void) : "Fired by Start."
+	output OnMusicCue(void) : "Fired musiccuedelay seconds after Start, or by Cue."
+	output OnFinished(void) : "Fired when the roll has run out and the hold time is over."
+]

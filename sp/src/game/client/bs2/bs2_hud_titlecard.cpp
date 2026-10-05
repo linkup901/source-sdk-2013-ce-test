@@ -90,6 +90,7 @@ public:
 
 	void			ShowHint( const char *pszText, float flDelay );
 	void			HideHint( void );
+	vgui::HFont		GetFont( int nFamily, int nPixels );
 
 protected:
 	virtual void	Paint( void );
@@ -102,7 +103,6 @@ private:
 	BS2Card_t		*FindBuilding( int nId, bool bCreate );
 	float			CardOpacity( const BS2Card_t &card, float flNow, float flBuilt ) const;
 	static float	BuiltTime( const BS2Card_t &card );
-	vgui::HFont		GetFont( int nFamily, int nPixels );
 	void			ExpandText( const char *pszIn, char *pszOut, int nOutSize ) const;
 	void			DrawBlock( const BS2CardBlock_t &block, float flAlpha, int nScreenW, int nScreenH, bool bHint );
 	void			DrawHint( float flNow, int nScreenW, int nScreenH );
@@ -704,4 +704,9 @@ void BS2_Hint_Hide( void )
 {
 	if ( s_pTitleCard )
 		s_pTitleCard->HideHint();
+}
+
+vgui::HFont BS2_GetFont( int nFamily, int nPixels )
+{
+	return s_pTitleCard ? s_pTitleCard->GetFont( nFamily, nPixels ) : 0;
 }
