@@ -46,6 +46,9 @@ void RegisterUserMessages( void )
 	usermessages->Register( "AchievementEvent", -1 );
 	usermessages->Register( "UpdateJalopyRadar", -1 );
 
+	// Black Stasis 2, Phase 2 (shared/bs2/bs2_ui_messages.h)
+	usermessages->Register( "BS2Card", -1 );
+
 #ifndef _X360
 	// NVNT register haptic user messages
 	RegisterHapticMessages();

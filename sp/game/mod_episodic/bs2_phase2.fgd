@@ -1,0 +1,2 @@
+// Black Stasis 2, Phase 2 entities. Add this file in Hammer's Game Configurations > Game Data files.
+@include "fgd/bs2_titlecard.fgd"

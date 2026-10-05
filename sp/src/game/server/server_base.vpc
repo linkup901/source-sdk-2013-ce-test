@@ -442,6 +442,7 @@ $Project
 		$File	"logicauto.cpp"
 		$File	"logicentities.cpp"
 		$File	"logicrelay.cpp"
+		$File	"bs2\point_bs2_titlecard.cpp"
 		$File	"mapentities.cpp"
 		$File	"$SRCDIR\game\shared\mapentities_shared.cpp"
 		$File	"maprules.cpp"

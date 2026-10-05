@@ -1,0 +1,204 @@
+// Black Stasis 2, Phase 2 - A1. point_bs2_titlecard (sp/src/game/server/bs2/point_bs2_titlecard.cpp, HUD: client/bs2/bs2_hud_titlecard.cpp)
+@PointClass base(Targetname) iconsprite("editor/env_message.vmt") = point_bs2_titlecard : "Black Stasis 2 title card. Up to 8 text blocks that fade in one after another, hold, and fade out; a card that is shown while another one is on screen waits its turn. With Style = Hint it is the small bottom-right hint ('Press %use% to skip') instead."
+[
+	holdtime(float) : "Hold time" : 4 : "Seconds the card stays after its last block has finished fading in."
+	fadeouttime(float) : "Fade out time" : 1.5
+	style(choices) : "Style" : 0 =
+	[
+		0 : "Title card"
+		1 : "Hint (bottom right, uses block 1 only, text up to 30 px)"
+	]
+	blackbackground(choices) : "Black background" : 0 : "A full-screen black behind the card (when the map has not blacked the screen out itself)." =
+	[
+		0 : "No"
+		1 : "Yes"
+	]
+	bgfade(float) : "Background fade in" : 0 : "Seconds the black takes to fade in."
+	forever(choices) : "Stay until Hide / Skip" : 0 =
+	[
+		0 : "No (hold time, then fade out)"
+		1 : "Yes"
+	]
+
+	// ---- block 1
+	text1(string) : "Block 1: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font1(choices) : "Block 1: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size1(integer) : "Block 1: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x1(float) : "Block 1: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y1(float) : "Block 1: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align1(choices) : "Block 1: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay1(float) : "Block 1: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein1(float) : "Block 1: fade in" : 1 : "Seconds the block takes to fade in."
+	color1(color255) : "Block 1: colour" : "255 255 255"
+	alpha1(integer) : "Block 1: alpha" : 255
+
+	// ---- block 2
+	text2(string) : "Block 2: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font2(choices) : "Block 2: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size2(integer) : "Block 2: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x2(float) : "Block 2: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y2(float) : "Block 2: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align2(choices) : "Block 2: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay2(float) : "Block 2: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein2(float) : "Block 2: fade in" : 1 : "Seconds the block takes to fade in."
+	color2(color255) : "Block 2: colour" : "255 255 255"
+	alpha2(integer) : "Block 2: alpha" : 255
+
+	// ---- block 3
+	text3(string) : "Block 3: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font3(choices) : "Block 3: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size3(integer) : "Block 3: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x3(float) : "Block 3: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y3(float) : "Block 3: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align3(choices) : "Block 3: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay3(float) : "Block 3: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein3(float) : "Block 3: fade in" : 1 : "Seconds the block takes to fade in."
+	color3(color255) : "Block 3: colour" : "255 255 255"
+	alpha3(integer) : "Block 3: alpha" : 255
+
+	// ---- block 4
+	text4(string) : "Block 4: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font4(choices) : "Block 4: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size4(integer) : "Block 4: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x4(float) : "Block 4: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y4(float) : "Block 4: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align4(choices) : "Block 4: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay4(float) : "Block 4: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein4(float) : "Block 4: fade in" : 1 : "Seconds the block takes to fade in."
+	color4(color255) : "Block 4: colour" : "255 255 255"
+	alpha4(integer) : "Block 4: alpha" : 255
+
+	// ---- block 5
+	text5(string) : "Block 5: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font5(choices) : "Block 5: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size5(integer) : "Block 5: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x5(float) : "Block 5: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y5(float) : "Block 5: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align5(choices) : "Block 5: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay5(float) : "Block 5: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein5(float) : "Block 5: fade in" : 1 : "Seconds the block takes to fade in."
+	color5(color255) : "Block 5: colour" : "255 255 255"
+	alpha5(integer) : "Block 5: alpha" : 255
+
+	// ---- block 6
+	text6(string) : "Block 6: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font6(choices) : "Block 6: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size6(integer) : "Block 6: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x6(float) : "Block 6: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y6(float) : "Block 6: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align6(choices) : "Block 6: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay6(float) : "Block 6: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein6(float) : "Block 6: fade in" : 1 : "Seconds the block takes to fade in."
+	color6(color255) : "Block 6: colour" : "255 255 255"
+	alpha6(integer) : "Block 6: alpha" : 255
+
+	// ---- block 7
+	text7(string) : "Block 7: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font7(choices) : "Block 7: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size7(integer) : "Block 7: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x7(float) : "Block 7: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y7(float) : "Block 7: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align7(choices) : "Block 7: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay7(float) : "Block 7: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein7(float) : "Block 7: fade in" : 1 : "Seconds the block takes to fade in."
+	color7(color255) : "Block 7: colour" : "255 255 255"
+	alpha7(integer) : "Block 7: alpha" : 255
+
+	// ---- block 8
+	text8(string) : "Block 8: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
+	font8(choices) : "Block 8: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	[
+		0 : "Title"
+		1 : "Serif (dictionary card)"
+		2 : "Small"
+	]
+	size8(integer) : "Block 8: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
+	x8(float) : "Block 8: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
+	y8(float) : "Block 8: y" : 0.5 : "Anchor, fraction of the screen height. The block is centred on it vertically."
+	align8(choices) : "Block 8: align" : 1 : "Which part of the text sits on x." =
+	[
+		0 : "Left"
+		1 : "Centre"
+		2 : "Right"
+	]
+	delay8(float) : "Block 8: delay" : 0 : "Seconds after the card starts until this block begins to fade in."
+	fadein8(float) : "Block 8: fade in" : 1 : "Seconds the block takes to fade in."
+	color8(color255) : "Block 8: colour" : "255 255 255"
+	alpha8(integer) : "Block 8: alpha" : 255
+
+	input Show(void) : "Show the card (queued if another card is showing)."
+	input Hide(void) : "Fade this card out (also removes it from the queue)."
+	input Skip(void) : "Fade this card out fast; the next card in the queue starts."
+
+	output OnShown(void) : "Fired when the Show input has sent the card to the screen."
+]
