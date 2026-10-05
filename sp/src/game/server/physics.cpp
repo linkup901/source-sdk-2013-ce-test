@@ -444,6 +444,66 @@ static bool WheelCollidesWith( IPhysicsObject *pObj, CBaseEntity *pEntity )
 	return false;
 }
 
+// ------------------------------------------------------------------------------------------------
+// Black Stasis 2 (Phase 2 A6): the ridge crash. Debugger traces (tools\crash_trace.py) showed an access violation in a physics callback of this DLL (read of 0xC38DD180, the bits
+// of a float, used as an entity pointer) when the player's noclip shadow sat inside one solid cliff rock; the rock is the only difference between a clean sweep and the crash.
+// Every callback below takes the entity from the physics object's game data and calls into it. BS2_PhysEnt returns NULL (what the callbacks already treat as "not an entity,
+// ignore") for a pointer that cannot be an entity: below 64 KB, unaligned, or a block of entity size that cannot be read.
+// ------------------------------------------------------------------------------------------------
+#ifdef _WIN32
+static bool BS2_PhysPointerReadable( const void *p )
+{
+	const uintptr_t nAddr = (uintptr_t)p;
+	if ( nAddr < 0x10000 || ( nAddr & 3 ) != 0 )
+		return false;
+
+	// pointers that passed before: the same few entities come up thousands of times
+	static const void *s_Known[64];
+	static int s_nNext = 0;
+	for ( int i = 0; i < ARRAYSIZE( s_Known ); i++ )
+	{
+		if ( s_Known[i] == p )
+			return true;
+	}
+
+	// touch the first and the last byte of an entity-sized block: an access violation here is caught and means 'not a pointer'. (SEH, no windows.h: its macros
+	// - GetObject for one - would break the rest of this file. No object with a destructor may live in this function.)
+	__try
+	{
+		const volatile char *pBytes = (const volatile char *)p;
+		(void)pBytes[0];
+		(void)pBytes[63];
+	}
+	__except( 1 )		// EXCEPTION_EXECUTE_HANDLER
+	{
+		return false;
+	}
+
+	s_Known[s_nNext++ & 63] = p;
+	return true;
+}
+#endif
+
+static CBaseEntity *BS2_PhysEnt( void *pGameData )
+{
+	if ( !pGameData )
+		return NULL;
+
+#ifdef _WIN32
+	if ( !BS2_PhysPointerReadable( pGameData ) )
+	{
+		static int s_nReported = 0;
+		if ( s_nReported++ < 5 )
+		{
+			Warning( "Physics callback got game data %p that is not an entity: ignored (bs2 A6)\n", pGameData );
+		}
+		return NULL;
+	}
+#endif
+
+	return static_cast<CBaseEntity *>( pGameData );
+}
+
 CCollisionEvent::CCollisionEvent()
 {
 	m_inCallback = 0;
@@ -464,8 +524,8 @@ int CCollisionEvent::ShouldCollide_2( IPhysicsObject *pObj0, IPhysicsObject *pOb
 {
 	CallbackContext check(this);
 
-	CBaseEntity *pEntity0 = static_cast<CBaseEntity *>(pGameData0);
-	CBaseEntity *pEntity1 = static_cast<CBaseEntity *>(pGameData1);
+	CBaseEntity *pEntity0 = BS2_PhysEnt( pGameData0 );
+	CBaseEntity *pEntity1 = BS2_PhysEnt( pGameData1 );
 
 	if ( !pEntity0 || !pEntity1 )
 		return 1;
@@ -662,7 +722,7 @@ bool CCollisionEvent::ShouldFreezeObject( IPhysicsObject *pObject )
 	// to inform the logic in VPhysicsUpdatePusher() about the limit being applied so 
 	// that it doesn't falsely block the object when it's simply been temporarily frozen
 	// for performance reasons
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( pEntity )
 	{
 		if (pEntity->GetMoveType() == MOVETYPE_PUSH )
@@ -680,7 +740,7 @@ bool CCollisionEvent::ShouldFreezeObject( IPhysicsObject *pObject )
 	// After doing the experiment of constraining the dynamic range of mass while solving friction
 	// contacts, I like the results of this tradeoff better.  So damage or remove the debris object
 	// wherever possible once we hit this case:
-	if ( IsDebris( pEntity->GetCollisionGroup()) && !pEntity->IsNPC() )
+	if ( pEntity && IsDebris( pEntity->GetCollisionGroup()) && !pEntity->IsNPC() )
 	{
 		IPhysicsObject *pOtherObject = NULL;
 		Vector contactPos;
@@ -688,7 +748,10 @@ bool CCollisionEvent::ShouldFreezeObject( IPhysicsObject *pObject )
 		// find the contact with the moveable object applying the most contact force
 		if ( FindMaxContact( pObject, pObject->GetMass() * 10, &pOtherObject, &contactPos, &force ) )
 		{
-			CBaseEntity *pOther = static_cast<CBaseEntity *>(pOtherObject->GetGameData());
+			CBaseEntity *pOther = BS2_PhysEnt( pOtherObject->GetGameData() );
+			if ( !pOther )
+				return true;
+
 			// this object can take damage, crush it
 			if ( pEntity->m_takedamage > DAMAGE_EVENTS_ONLY )
 			{
@@ -723,8 +786,9 @@ bool CCollisionEvent::ShouldFreezeContacts( IPhysicsObject **pObjectList, int ob
 #if _DEBUG
 		for ( int i = 0; i < objectCount; i++ )
 		{
-			CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObjectList[i]->GetGameData());
-			pEntity->m_debugOverlays |= OVERLAY_ABSBOX_BIT | OVERLAY_PIVOT_BIT;
+			CBaseEntity *pEntity = BS2_PhysEnt( pObjectList[i]->GetGameData() );
+			if ( pEntity )
+				pEntity->m_debugOverlays |= OVERLAY_ABSBOX_BIT | OVERLAY_PIVOT_BIT;
 		}
 #endif
 	}
@@ -736,7 +800,7 @@ bool CCollisionEvent::ShouldFreezeContacts( IPhysicsObject **pObjectList, int ob
 // called when an object wakes up (starts simulating)
 void CCollisionEvent::ObjectWake( IPhysicsObject *pObject )
 {
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( pEntity && pEntity->HasDataObjectType( VPHYSICSWATCHER ) )
 	{
 		ReportVPhysicsStateChanged( pObject, pEntity, true );
@@ -745,7 +809,7 @@ void CCollisionEvent::ObjectWake( IPhysicsObject *pObject )
 // called when an object goes to sleep (no longer simulating)
 void CCollisionEvent::ObjectSleep( IPhysicsObject *pObject )
 {
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( pEntity && pEntity->HasDataObjectType( VPHYSICSWATCHER ) )
 	{
 		ReportVPhysicsStateChanged( pObject, pEntity, false );
@@ -969,12 +1033,16 @@ int CCollisionEvent::ShouldSolvePenetration( IPhysicsObject *pObj0, IPhysicsObje
 	CallbackContext check(this);
 	
 	// Pointers to the entity for each physics object
-	CBaseEntity *pEntity0 = static_cast<CBaseEntity *>(pGameData0);
-	CBaseEntity *pEntity1 = static_cast<CBaseEntity *>(pGameData1);
+	CBaseEntity *pEntity0 = BS2_PhysEnt( pGameData0 );
+	CBaseEntity *pEntity1 = BS2_PhysEnt( pGameData1 );
 
 	// this can get called as entities are being constructed on the other side of a game load or level transition
 	// Some entities may not be fully constructed, so don't call into their code until the level is running
 	if ( g_PhysicsHook.m_bPaused )
+		return true;
+
+	// bs2 A6: not entities (see BS2_PhysEnt): let vphysics solve it
+	if ( !pEntity0 || !pEntity1 )
 		return true;
 
 	// solve it yourself here and return 0, or have the default implementation do it
@@ -1063,7 +1131,7 @@ void CCollisionEvent::FluidStartTouch( IPhysicsObject *pObject, IPhysicsFluidCon
 	if ( ( pObject == NULL ) || ( pFluid == NULL ) )
 		return;
 
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( !pEntity )
 		return;
 
@@ -1113,7 +1181,7 @@ void CCollisionEvent::FluidEndTouch( IPhysicsObject *pObject, IPhysicsFluidContr
 	if ( ( pObject == NULL ) || ( pFluid == NULL ) )
 		return;
 
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( !pEntity )
 		return;
 
@@ -1253,7 +1321,7 @@ void IterateActivePhysicsEntities( EntityCallbackFunction func )
 		physenv->GetActiveObjects( pActiveList );
 		for ( int i = 0; i < activeCount; i++ )
 		{
-			CBaseEntity *pEntity = reinterpret_cast<CBaseEntity *>(pActiveList[i]->GetGameData());
+			CBaseEntity *pEntity = BS2_PhysEnt( pActiveList[i]->GetGameData() );
 			if ( pEntity )
 			{
 				func( pEntity );
@@ -1579,7 +1647,7 @@ CON_COMMAND( physics_budget, "Times the cost of each active object" )
 		physenv->GetActiveObjects( pActiveList );
 		for ( i = 0; i < activeCount; i++ )
 		{
-			CBaseEntity *pEntity = reinterpret_cast<CBaseEntity *>(pActiveList[i]->GetGameData());
+			CBaseEntity *pEntity = BS2_PhysEnt( pActiveList[i]->GetGameData() );
 			if ( pEntity )
 			{
 				int index = -1;
@@ -1720,7 +1788,7 @@ void PhysFrame( float deltaTime )
 
 		for ( int i = 0; i < activeCount; i++ )
 		{
-			CBaseEntity *pEntity = reinterpret_cast<CBaseEntity *>(pActiveList[i]->GetGameData());
+			CBaseEntity *pEntity = BS2_PhysEnt( pActiveList[i]->GetGameData() );
 			if ( pEntity )
 			{
 				if ( pEntity->CollisionProp()->DoesVPhysicsInvalidateSurroundingBox() )
@@ -1833,7 +1901,7 @@ void CCollisionEvent::PreCollision( vcollisionevent_t *pEvent )
 		{
 			if ( pObject->GetGameFlags() & FVPHYSICS_PLAYER_HELD )
 			{
-				CBaseEntity *pOtherEntity = reinterpret_cast<CBaseEntity *>(pEvent->pObjects[!i]->GetGameData());
+				CBaseEntity *pOtherEntity = BS2_PhysEnt( pEvent->pObjects[!i]->GetGameData() );
 				if ( pOtherEntity && !pOtherEntity->IsPlayer() )
 				{
 					Vector velocity;
@@ -1867,7 +1935,7 @@ void CCollisionEvent::PostCollision( vcollisionevent_t *pEvent )
 		IPhysicsObject *pObject = pEvent->pObjects[i];
 		if ( pObject )
 		{
-			CBaseEntity *pEntity = reinterpret_cast<CBaseEntity *>(pObject->GetGameData());
+			CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 			if ( !pEntity )
 				return;
 
@@ -1943,7 +2011,7 @@ void CCollisionEvent::Friction( IPhysicsObject *pObject, float energy, int surfa
 	pData->GetContactPoint( vecPos );
 	pObject->GetVelocityAtPoint( vecPos, &vecVel );
 
-	CBaseEntity *pEntity = reinterpret_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 		
 	if ( pEntity  )
 	{
@@ -2385,7 +2453,7 @@ int CCollisionEvent::AddDamageInflictor( IPhysicsObject *pInflictorPhysics, floa
 
 	if ( addList )
 	{
-		CBaseEntity *pEntity = static_cast<CBaseEntity *>(pInflictorPhysics->GetGameData());
+		CBaseEntity *pEntity = BS2_PhysEnt( pInflictorPhysics->GetGameData() );
 		if ( pEntity )
 		{
 			IPhysicsObject *pList[VPHYSICS_MAX_OBJECT_LIST_COUNT];
@@ -2427,8 +2495,8 @@ void CCollisionEvent::LevelShutdown( void )
 void CCollisionEvent::StartTouch( IPhysicsObject *pObject1, IPhysicsObject *pObject2, IPhysicsCollisionData *pTouchData )
 {
 	CallbackContext check(this);
-	CBaseEntity *pEntity1 = static_cast<CBaseEntity *>(pObject1->GetGameData());
-	CBaseEntity *pEntity2 = static_cast<CBaseEntity *>(pObject2->GetGameData());
+	CBaseEntity *pEntity1 = BS2_PhysEnt( pObject1->GetGameData() );
+	CBaseEntity *pEntity2 = BS2_PhysEnt( pObject2->GetGameData() );
 
 	if ( !pEntity1 || !pEntity2 )
 		return;
@@ -2453,7 +2521,7 @@ static int CountPhysicsObjectEntityContacts( IPhysicsObject *pObject, CBaseEntit
 	while ( pSnapshot->IsValid() )
 	{
 		IPhysicsObject *pOther = pSnapshot->GetObject(1);
-		CBaseEntity *pOtherEntity = static_cast<CBaseEntity *>(pOther->GetGameData());
+		CBaseEntity *pOtherEntity = BS2_PhysEnt( pOther->GetGameData() );
 		if ( pOtherEntity == pEntity )
 			count++;
 		pSnapshot->NextFrictionData();
@@ -2465,8 +2533,8 @@ static int CountPhysicsObjectEntityContacts( IPhysicsObject *pObject, CBaseEntit
 void CCollisionEvent::EndTouch( IPhysicsObject *pObject1, IPhysicsObject *pObject2, IPhysicsCollisionData *pTouchData )
 {
 	CallbackContext check(this);
-	CBaseEntity *pEntity1 = static_cast<CBaseEntity *>(pObject1->GetGameData());
-	CBaseEntity *pEntity2 = static_cast<CBaseEntity *>(pObject2->GetGameData());
+	CBaseEntity *pEntity1 = BS2_PhysEnt( pObject1->GetGameData() );
+	CBaseEntity *pEntity2 = BS2_PhysEnt( pObject2->GetGameData() );
 
 	if ( !pEntity1 || !pEntity2 )
 		return;
@@ -2505,8 +2573,8 @@ void CCollisionEvent::EndTouch( IPhysicsObject *pObject1, IPhysicsObject *pObjec
 // UNDONE: This is functional, but minimally.
 void CCollisionEvent::ObjectEnterTrigger( IPhysicsObject *pTrigger, IPhysicsObject *pObject )
 {
-	CBaseEntity *pTriggerEntity = static_cast<CBaseEntity *>(pTrigger->GetGameData());
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pTriggerEntity = BS2_PhysEnt( pTrigger->GetGameData() );
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( pTriggerEntity && pEntity )
 	{
 		// UNDONE: Don't buffer these until we can solve generating touches at object creation time
@@ -2527,8 +2595,8 @@ void CCollisionEvent::ObjectEnterTrigger( IPhysicsObject *pTrigger, IPhysicsObje
 
 void CCollisionEvent::ObjectLeaveTrigger( IPhysicsObject *pTrigger, IPhysicsObject *pObject )
 {
-	CBaseEntity *pTriggerEntity = static_cast<CBaseEntity *>(pTrigger->GetGameData());
-	CBaseEntity *pEntity = static_cast<CBaseEntity *>(pObject->GetGameData());
+	CBaseEntity *pTriggerEntity = BS2_PhysEnt( pTrigger->GetGameData() );
+	CBaseEntity *pEntity = BS2_PhysEnt( pObject->GetGameData() );
 	if ( pTriggerEntity && pEntity )
 	{
 		// UNDONE: Don't buffer these until we can solve generating touches at object creation time
@@ -2870,9 +2938,12 @@ void DebugDrawContactPoints(IPhysicsObject *pPhysics)
 		NDebugOverlay::Box( pt, -Vector(1,1,1), Vector(1,1,1), 0, 255, 0, 32, 0 );
 		NDebugOverlay::Line( pt, pt - normal * 20, 0, 255, 0, false, 0 );
 		IPhysicsObject *pOther = pSnapshot->GetObject(1);
-		CBaseEntity *pEntity0 = static_cast<CBaseEntity *>(pOther->GetGameData());
-		CFmtStr str("%s (%s): %s [%0.2f]", pEntity0->GetClassname(), STRING(pEntity0->GetModelName()), pEntity0->GetDebugName(), pSnapshot->GetFrictionCoefficient() );
-		NDebugOverlay::Text( pt, str.Access(), false, 0 );
+		CBaseEntity *pEntity0 = BS2_PhysEnt( pOther->GetGameData() );
+		if ( pEntity0 )
+		{
+			CFmtStr str("%s (%s): %s [%0.2f]", pEntity0->GetClassname(), STRING(pEntity0->GetModelName()), pEntity0->GetDebugName(), pSnapshot->GetFrictionCoefficient() );
+			NDebugOverlay::Text( pt, str.Access(), false, 0 );
+		}
 		pSnapshot->NextFrictionData();
 	}
 	pSnapshot->DeleteAllMarkedContacts( true );
