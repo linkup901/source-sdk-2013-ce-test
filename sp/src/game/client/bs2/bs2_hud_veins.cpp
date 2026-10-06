@@ -102,6 +102,7 @@ CHudBS2Veins::CHudBS2Veins( const char *pElementName ) : CHudElement( pElementNa
 {
 	vgui::Panel *pParent = g_pClientMode->GetViewport();
 	SetParent( pParent );
+	SetZPos( 100 );		// above the other HUD panels: the veins creep over the title cards (prelude), the eyelids close over everything
 
 	for ( int i = 0; i < BS2_VEIN_STAGES; i++ )
 		m_nStage[i] = 0;
