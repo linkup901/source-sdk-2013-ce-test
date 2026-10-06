@@ -288,12 +288,12 @@ void CHudBS2Credits::StyleFont( int nStyle, vgui::HFont &hFont, Color &color ) c
 		color = Color( 170, 170, 170, 255 );
 		break;
 	case CRED_DETAIL:
-		hFont = BS2_GetFont( BS2FONT_SERIF, 24 );
+		hFont = BS2_GetFont( BS2FONT_SMALL, 24 );		// D-DIN regular (Trebuchet MS without the D-DIN files)
 		color = Color( 140, 140, 140, 255 );
 		break;
 	case CRED_ENTRY:
 	default:
-		hFont = BS2_GetFont( BS2FONT_SERIF, 30 );
+		hFont = BS2_GetFont( BS2FONT_SMALL, 30 );
 		color = Color( 225, 225, 225, 255 );
 		break;
 	}

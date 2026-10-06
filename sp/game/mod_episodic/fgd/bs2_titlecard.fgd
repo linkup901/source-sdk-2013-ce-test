@@ -22,11 +22,11 @@
 
 	// ---- block 1
 	text1(string) : "Block 1: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font1(choices) : "Block 1: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font1(choices) : "Block 1: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size1(integer) : "Block 1: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x1(float) : "Block 1: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -44,11 +44,11 @@
 
 	// ---- block 2
 	text2(string) : "Block 2: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font2(choices) : "Block 2: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font2(choices) : "Block 2: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size2(integer) : "Block 2: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x2(float) : "Block 2: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -66,11 +66,11 @@
 
 	// ---- block 3
 	text3(string) : "Block 3: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font3(choices) : "Block 3: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font3(choices) : "Block 3: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size3(integer) : "Block 3: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x3(float) : "Block 3: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -88,11 +88,11 @@
 
 	// ---- block 4
 	text4(string) : "Block 4: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font4(choices) : "Block 4: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font4(choices) : "Block 4: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size4(integer) : "Block 4: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x4(float) : "Block 4: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -110,11 +110,11 @@
 
 	// ---- block 5
 	text5(string) : "Block 5: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font5(choices) : "Block 5: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font5(choices) : "Block 5: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size5(integer) : "Block 5: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x5(float) : "Block 5: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -132,11 +132,11 @@
 
 	// ---- block 6
 	text6(string) : "Block 6: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font6(choices) : "Block 6: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font6(choices) : "Block 6: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size6(integer) : "Block 6: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x6(float) : "Block 6: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -154,11 +154,11 @@
 
 	// ---- block 7
 	text7(string) : "Block 7: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font7(choices) : "Block 7: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font7(choices) : "Block 7: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size7(integer) : "Block 7: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x7(float) : "Block 7: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."
@@ -176,11 +176,11 @@
 
 	// ---- block 8
 	text8(string) : "Block 8: text" : "" : "Up to 150 characters. '|' is a line break, %use% is the key bound to +use. Empty = the block is not shown."
-	font8(choices) : "Block 8: font" : 0 : "Title = Anton, else Bebas Neue, else the scheme title font." =
+	font8(choices) : "Block 8: font" : 0 : "Title = D-DIN Bold, else Anton, else Bebas Neue, else the scheme title font. Small and the hint = D-DIN regular, else Trebuchet MS." =
 	[
 		0 : "Title"
 		1 : "Serif (dictionary card)"
-		2 : "Small"
+		2 : "Small (D-DIN regular)"
 	]
 	size8(integer) : "Block 8: size" : 72 : "Text height in pixels at 1080 lines (scaled to the screen)."
 	x8(float) : "Block 8: x" : 0.5 : "Anchor, fraction of the screen width (0.17 = the left third's middle)."

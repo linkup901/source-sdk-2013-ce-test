@@ -32,9 +32,9 @@ enum	// BS2CARD_SHOW flags
 
 enum	// block fonts
 {
-	BS2FONT_TITLE = 0,		// Anton, else Bebas Neue, else the scheme's title font
+	BS2FONT_TITLE = 0,		// D-DIN Bold, else Anton, else Bebas Neue, else the scheme's title font
 	BS2FONT_SERIF = 1,		// the dictionary card
-	BS2FONT_SMALL = 2,		// the hint
+	BS2FONT_SMALL = 2,		// D-DIN regular (else Trebuchet MS): small lines, the hint, the credits entries
 };
 
 enum	// block alignment (about the x position)

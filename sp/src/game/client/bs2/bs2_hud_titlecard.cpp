@@ -5,8 +5,9 @@
 // Cards come from point_bs2_titlecard (server\bs2\point_bs2_titlecard.cpp) as "BS2Card" user messages (shared\bs2\bs2_ui_messages.h):
 // BLOCK messages first, then SHOW. A card that arrives while another one is showing waits in a queue. The hint lane is separate and draws on top.
 //
-// Fonts: resource/Anton-Regular.ttf ("Anton"), else resource/BebasNeue-Regular.ttf ("Bebas Neue"), else the scheme's ClientTitleFont. The dictionary card
-// (BS2FONT_SERIF) uses Georgia, the hint (BS2FONT_SMALL) Trebuchet MS. Fonts are created on demand at the screen height / 1080 scale.
+// Fonts: D-DIN (resource/D-DIN.ttf + D-DIN-Bold.ttf, SIL OFL): BS2FONT_TITLE = D-DIN Bold, BS2FONT_SMALL = D-DIN regular (also the hint). Without the D-DIN
+// files: Anton (resource/Anton-Regular.ttf), else Bebas Neue (resource/BebasNeue-Regular.ttf), else the scheme's ClientTitleFont for the title, and Trebuchet MS for
+// the small font. The dictionary card (BS2FONT_SERIF) uses Georgia. Fonts are created on demand at the screen height / 1080 scale.
 //
 //=============================================================================//
 
@@ -119,6 +120,8 @@ private:
 
 	bool			m_bHaveAnton;
 	bool			m_bHaveBebas;
+	bool			m_bHaveDDin;			// resource/D-DIN.ttf registered
+	bool			m_bHaveDDinBold;		// resource/D-DIN-Bold.ttf registered (same family "D-DIN", weight 700)
 	vgui::HFont		m_hSchemeTitleFont;
 };
 
@@ -139,6 +142,8 @@ CHudBS2TitleCard::CHudBS2TitleCard( const char *pElementName ) : CHudElement( pE
 	m_bHintOn = false;
 	m_bHaveAnton = false;
 	m_bHaveBebas = false;
+	m_bHaveDDin = false;
+	m_bHaveDDinBold = false;
 	m_hSchemeTitleFont = 0;
 
 	s_pTitleCard = this;
@@ -155,6 +160,14 @@ void CHudBS2TitleCard::Init( void )
 	HOOK_HUD_MESSAGE( CHudBS2TitleCard, BS2Card );
 
 	// the display fonts, when the files have been dropped into the mod's resource folder
+	if ( g_pFullFileSystem->FileExists( "resource/D-DIN.ttf", "GAME" ) )
+	{
+		m_bHaveDDin = surface()->AddCustomFontFile( "D-DIN", "resource/D-DIN.ttf" );
+	}
+	if ( g_pFullFileSystem->FileExists( "resource/D-DIN-Bold.ttf", "GAME" ) )
+	{
+		m_bHaveDDinBold = surface()->AddCustomFontFile( "D-DIN Bold", "resource/D-DIN-Bold.ttf" );
+	}
 	if ( g_pFullFileSystem->FileExists( "resource/Anton-Regular.ttf", "GAME" ) )
 	{
 		m_bHaveAnton = surface()->AddCustomFontFile( "Anton", "resource/Anton-Regular.ttf" );
@@ -445,13 +458,26 @@ vgui::HFont CHudBS2TitleCard::GetFont( int nFamily, int nPixels )
 		break;
 
 	case BS2FONT_SMALL:
-		pszName = "Trebuchet MS";
-		nWeight = 500;
+		if ( m_bHaveDDin )
+		{
+			pszName = "D-DIN";
+			nWeight = 400;
+		}
+		else
+		{
+			pszName = "Trebuchet MS";
+			nWeight = 500;
+		}
 		break;
 
 	case BS2FONT_TITLE:
 	default:
-		if ( m_bHaveAnton )
+		if ( m_bHaveDDin || m_bHaveDDinBold )
+		{
+			pszName = "D-DIN";
+			nWeight = m_bHaveDDinBold ? 700 : 400;
+		}
+		else if ( m_bHaveAnton )
 			pszName = "Anton";
 		else if ( m_bHaveBebas )
 			pszName = "Bebas Neue";
