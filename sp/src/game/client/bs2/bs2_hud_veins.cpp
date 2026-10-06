@@ -7,9 +7,10 @@
 //   - env_bs2_veins (BS2Veins user message): a pulse for scripted collapses, or a steady level that ramps
 //   - death: two eyelids close over bs2_death_lid_time seconds (3), the veins pulse hard until the game reloads
 //
-// The veins are drawn from a little tree grown once with a fixed seed (no texture to make): a few roots on the screen border, each walking inward with a
-// drifting heading and side branches. A segment has a birth value 0..1 (how far along its path); at vein level g every segment with birth < g is there, the one
-// at the front is only partly drawn, so raising g makes the veins crawl.
+// The veins are pre-drawn art (tools\gen_bs2_veins.py): one branching black network grown inward from the screen border (Murray-law radii, hairline
+// capillaries, wet sheen), saved as BS2_VEIN_STAGES snapshots of its growth (materials/vgui/bs2/veins/vein_00..07). At vein level g the two snapshots around g
+// are cross-faded, so raising g makes the veins crawl from the edge to the centre. The canvas is 2:1 and covers the screen (crops the sides on 16:9, the top and
+// bottom on 21:9, never stretched); each new episode of veins mirrors it at random so it does not always look the same.
 //
 //=============================================================================//
 
@@ -33,28 +34,8 @@ static ConVar bs2_veins( "bs2_veins", "1", FCVAR_ARCHIVE, "Black Stasis 2: vein 
 static ConVar bs2_death_lid_time( "bs2_death_lid_time", "3.0", FCVAR_ARCHIVE, "Seconds the eyelids take to close when the player dies" );
 static ConVar bs2_veins_debug( "bs2_veins_debug", "0", FCVAR_CHEAT, "Hold the vein level at this value (0 = normal)" );
 
-#define VEIN_SPACE_W		1.7778f		// the veins are grown in a 16:9 space measured in screen heights: x 0..1.7778, y 0..1
-#define VEIN_MAX_SEGMENTS	3000
-
-struct BS2VeinSeg_t
-{
-	float	x0, y0, x1, y1;		// in the grown space
-	float	width;				// pixels at 1080 lines
-	float	birth;				// 0..1
-};
-
-class CBS2VeinRand
-{
-public:
-	CBS2VeinRand( unsigned nSeed ) : m_nState( nSeed ) {}
-	float Next( void )
-	{
-		m_nState = m_nState * 1664525u + 1013904223u;
-		return ( m_nState >> 8 ) * ( 1.0f / 16777216.0f );
-	}
-private:
-	unsigned m_nState;
-};
+#define BS2_VEIN_STAGES		8			// growth snapshots, vein_00 (first 1/8 of the growth) .. vein_07 (all of it)
+#define BS2_VEIN_ASPECT		2.0f		// width / height of the vein canvas (2048 x 1024)
 
 //-----------------------------------------------------------------------------
 class CHudBS2Veins : public CHudElement, public vgui::Panel
@@ -79,16 +60,14 @@ protected:
 private:
 	void			Reset_( void );
 	void			Update( void );
-	void			BuildVeins( void );
-	void			Grow( float x, float y, float flAngle, float flLength, float flWidth, float flBirth, int nGeneration, CBS2VeinRand &rnd );
-	void			AddSegment( float x0, float y0, float x1, float y1, float flWidth, float flBirth );
-	void			DrawQuad( float x0, float y0, float x1, float y1, float flHalfWidth, int r, int g, int b, int a );
+	void			LoadStages( void );
+	void			DrawStage( int nStage, int nAlpha, int nScreenW, int nScreenH );
 	void			DrawVeins( float flLevel, float flThrob, int nScreenW, int nScreenH );
 	void			DrawLids( float flProgress, int nScreenW, int nScreenH );
 
-	CUtlVector<BS2VeinSeg_t>	m_Segments;
-	bool			m_bBuilt;
-	int				m_nWhiteTexture;
+	int				m_nStage[BS2_VEIN_STAGES];		// vgui texture ids (0 = not loaded yet)
+	int				m_nFlip;						// bit 0 mirrors x, bit 1 mirrors y; new at the start of every episode
+	bool			m_bWasActive;
 
 	// sources of the level
 	float			m_flDamageLevel;
@@ -124,8 +103,10 @@ CHudBS2Veins::CHudBS2Veins( const char *pElementName ) : CHudElement( pElementNa
 	vgui::Panel *pParent = g_pClientMode->GetViewport();
 	SetParent( pParent );
 
-	m_bBuilt = false;
-	m_nWhiteTexture = 0;
+	for ( int i = 0; i < BS2_VEIN_STAGES; i++ )
+		m_nStage[i] = 0;
+	m_nFlip = 0;
+	m_bWasActive = false;
 	Reset_();
 
 	s_pVeins = this;
@@ -160,6 +141,7 @@ void CHudBS2Veins::Init( void )
 void CHudBS2Veins::LevelInit( void )
 {
 	Reset_();
+	m_bWasActive = false;
 }
 
 void CHudBS2Veins::LevelShutdown( void )
@@ -333,148 +315,84 @@ bool CHudBS2Veins::ShouldDraw( void )
 }
 
 //-----------------------------------------------------------------------------
-// Purpose: the vein tree (grown once, fixed seed)
+// Purpose: the vein art (see the top of the file)
 //-----------------------------------------------------------------------------
-void CHudBS2Veins::AddSegment( float x0, float y0, float x1, float y1, float flWidth, float flBirth )
+void CHudBS2Veins::LoadStages( void )
 {
-	if ( m_Segments.Count() >= VEIN_MAX_SEGMENTS )
-		return;
-
-	BS2VeinSeg_t seg;
-	seg.x0 = x0;
-	seg.y0 = y0;
-	seg.x1 = x1;
-	seg.y1 = y1;
-	seg.width = flWidth;
-	seg.birth = clamp( flBirth, 0.0f, 1.0f );
-	m_Segments.AddToTail( seg );
-}
-
-void CHudBS2Veins::Grow( float x, float y, float flAngle, float flLength, float flWidth, float flBirth, int nGeneration, CBS2VeinRand &rnd )
-{
-	const float flStep = 0.016f;
-	const int nSteps = (int)( flLength / flStep );
-
-	for ( int i = 0; i < nSteps; i++ )
+	for ( int i = 0; i < BS2_VEIN_STAGES; i++ )
 	{
-		flAngle += ( rnd.Next() - 0.5f ) * 0.7f;
+		if ( m_nStage[i] != 0 )
+			continue;
 
-		const float nx = x + cosf( flAngle ) * flStep;
-		const float ny = y + sinf( flAngle ) * flStep;
-		const float f = (float)i / (float)MAX( nSteps, 1 );
-		const float w = flWidth * ( 1.0f - 0.65f * f );
-
-		flBirth += flStep * 0.95f * ( 0.9f + 0.2f * rnd.Next() );
-		AddSegment( x, y, nx, ny, w, flBirth );
-
-		// side branches, thinner, shorter, born a little after
-		if ( nGeneration < 3 && rnd.Next() < ( nGeneration == 0 ? 0.14f : 0.08f ) )
-		{
-			const float flSide = ( rnd.Next() < 0.5f ) ? -1.0f : 1.0f;
-			Grow( nx, ny, flAngle + flSide * ( 0.5f + rnd.Next() * 0.7f ), flLength * ( 0.34f + 0.2f * rnd.Next() ) - i * flStep * 0.3f,
-				  w * 0.62f, flBirth + 0.015f, nGeneration + 1, rnd );
-		}
-
-		x = nx;
-		y = ny;
+		char szName[64];
+		Q_snprintf( szName, sizeof( szName ), "vgui/bs2/veins/vein_%02d", i );
+		m_nStage[i] = surface()->CreateNewTextureID();
+		surface()->DrawSetTextureFile( m_nStage[i], szName, true, false );
 	}
 }
 
-void CHudBS2Veins::BuildVeins( void )
+// one snapshot over the whole screen, "cover" fit of the 2:1 canvas
+void CHudBS2Veins::DrawStage( int nStage, int nAlpha, int nScreenW, int nScreenH )
 {
-	m_bBuilt = true;
-	m_Segments.RemoveAll();
-
-	CBS2VeinRand rnd( 20261005u );
-
-	const int nRoots = 20;
-	const float flPerimeter = 2.0f * ( VEIN_SPACE_W + 1.0f );
-
-	for ( int i = 0; i < nRoots; i++ )
-	{
-		// along the border, evenly with a jitter
-		float s = ( ( i + 0.5f + ( rnd.Next() - 0.5f ) * 0.8f ) / nRoots ) * flPerimeter;
-		float x, y;
-
-		if ( s < VEIN_SPACE_W )							{ x = s; y = 0.0f; }							// top
-		else if ( s < VEIN_SPACE_W + 1.0f )				{ x = VEIN_SPACE_W; y = s - VEIN_SPACE_W; }		// right
-		else if ( s < 2.0f * VEIN_SPACE_W + 1.0f )		{ x = VEIN_SPACE_W - ( s - VEIN_SPACE_W - 1.0f ); y = 1.0f; }	// bottom
-		else											{ x = 0.0f; y = 1.0f - ( s - 2.0f * VEIN_SPACE_W - 1.0f ); }	// left
-
-		// inward: towards the centre with a spread
-		const float flToCenter = atan2f( 0.5f - y, VEIN_SPACE_W * 0.5f - x );
-		const float flAngle = flToCenter + ( rnd.Next() - 0.5f ) * 0.9f;
-
-		const float flLength = 0.28f + 0.22f * rnd.Next();
-		Grow( x, y, flAngle, flLength, 4.2f + 2.4f * rnd.Next(), rnd.Next() * 0.18f, 0, rnd );
-	}
-}
-
-//-----------------------------------------------------------------------------
-void CHudBS2Veins::DrawQuad( float x0, float y0, float x1, float y1, float flHalfWidth, int r, int g, int b, int a )
-{
-	float dx = x1 - x0;
-	float dy = y1 - y0;
-	float len = sqrtf( dx * dx + dy * dy );
-	if ( len < 0.01f )
+	if ( nAlpha <= 0 || nStage < 0 || nStage >= BS2_VEIN_STAGES || m_nStage[nStage] == 0 )
 		return;
 
-	// perpendicular
-	const float nx = -dy / len * flHalfWidth;
-	const float ny = dx / len * flHalfWidth;
+	const float flScreenAspect = (float)nScreenW / (float)MAX( nScreenH, 1 );
+	float s0 = 0.0f, s1 = 1.0f, t0 = 0.0f, t1 = 1.0f;
+
+	if ( flScreenAspect >= BS2_VEIN_ASPECT )
+	{
+		// wider than the canvas: crop the top and bottom
+		const float flVisible = BS2_VEIN_ASPECT / flScreenAspect;
+		t0 = 0.5f - 0.5f * flVisible;
+		t1 = 0.5f + 0.5f * flVisible;
+	}
+	else
+	{
+		// narrower: crop the sides
+		const float flVisible = flScreenAspect / BS2_VEIN_ASPECT;
+		s0 = 0.5f - 0.5f * flVisible;
+		s1 = 0.5f + 0.5f * flVisible;
+	}
+
+	if ( m_nFlip & 1 )
+		{ const float flTmp = s0; s0 = s1; s1 = flTmp; }
+	if ( m_nFlip & 2 )
+		{ const float flTmp = t0; t0 = t1; t1 = flTmp; }
 
 	vgui::Vertex_t verts[4];
-	verts[0].Init( Vector2D( x0 + nx, y0 + ny ), Vector2D( 0, 0 ) );
-	verts[1].Init( Vector2D( x1 + nx, y1 + ny ), Vector2D( 1, 0 ) );
-	verts[2].Init( Vector2D( x1 - nx, y1 - ny ), Vector2D( 1, 1 ) );
-	verts[3].Init( Vector2D( x0 - nx, y0 - ny ), Vector2D( 0, 1 ) );
+	verts[0].Init( Vector2D( 0, 0 ),								Vector2D( s0, t0 ) );
+	verts[1].Init( Vector2D( (float)nScreenW, 0 ),					Vector2D( s1, t0 ) );
+	verts[2].Init( Vector2D( (float)nScreenW, (float)nScreenH ),	Vector2D( s1, t1 ) );
+	verts[3].Init( Vector2D( 0, (float)nScreenH ),					Vector2D( s0, t1 ) );
 
-	surface()->DrawSetColor( r, g, b, a );
+	surface()->DrawSetColor( 255, 255, 255, nAlpha );
+	surface()->DrawSetTexture( m_nStage[nStage] );
 	surface()->DrawTexturedPolygon( 4, verts );
 }
 
 void CHudBS2Veins::DrawVeins( float flLevel, float flThrob, int nScreenW, int nScreenH )
 {
-	if ( !m_bBuilt )
-		BuildVeins();
+	LoadStages();
 
-	if ( m_nWhiteTexture == 0 )
+	// the heart: a slight alpha pulse
+	const float flOverall = clamp( ( 0.62f + flLevel * 0.5f ) * ( 0.92f + 0.08f * flThrob ), 0.0f, 1.0f );
+
+	// stage k holds the growth up to (k + 1) / N: below the first stage the first one fades in, above it the stage below is solid and the next one fades in
+	const float flPos = clamp( flLevel, 0.0f, 1.0f ) * BS2_VEIN_STAGES;
+	const int nBase = MIN( (int)flPos, BS2_VEIN_STAGES );
+	const float flFrac = flPos - (float)nBase;
+
+	if ( nBase == 0 )
 	{
-		m_nWhiteTexture = surface()->CreateNewTextureID();
-		surface()->DrawSetTextureFile( m_nWhiteTexture, "vgui/white", true, false );
+		DrawStage( 0, (int)( 255.0f * flOverall * flFrac ), nScreenW, nScreenH );
+		return;
 	}
-	surface()->DrawSetTexture( m_nWhiteTexture );
 
-	const float flScaleX = (float)nScreenW / VEIN_SPACE_W;			// grown space -> pixels
-	const float flScaleY = (float)nScreenH;
-	const float flPixel = (float)nScreenH / 1080.0f;
-	const float flThick = 1.0f + 0.22f * flThrob * flLevel;
-	const float flOverall = clamp( 0.35f + flLevel * 0.9f, 0.0f, 1.0f );
-
-	// the front of the crawl: segments are born up to 'flLevel' of their path
-	const float flFront = flLevel * 1.02f;
-
-	for ( int i = 0; i < m_Segments.Count(); i++ )
+	DrawStage( nBase - 1, (int)( 255.0f * flOverall ), nScreenW, nScreenH );
+	if ( nBase < BS2_VEIN_STAGES )
 	{
-		const BS2VeinSeg_t &seg = m_Segments[i];
-		if ( seg.birth > flFront )
-			continue;
-
-		const float flGrown = clamp( ( flFront - seg.birth ) / 0.05f, 0.0f, 1.0f );
-		const float x0 = seg.x0 * flScaleX;
-		const float y0 = seg.y0 * flScaleY;
-		const float x1 = x0 + ( seg.x1 * flScaleX - x0 ) * flGrown;
-		const float y1 = y0 + ( seg.y1 * flScaleY - y0 ) * flGrown;
-
-		const float flHalf = MAX( 0.55f, seg.width * flPixel * flThick * 0.5f );
-
-		// dark body, then a thin red core
-		DrawQuad( x0, y0, x1, y1, flHalf * 1.35f, 14, 0, 4, (int)( 170 * flOverall ) );
-		DrawQuad( x0, y0, x1, y1, flHalf * 0.55f, 120 + (int)( 50 * flThrob ), 6, 16, (int)( 210 * flOverall ) );
-
-		// the same line as plain vgui lines (always drawn, whatever the polygon path does)
-		surface()->DrawSetColor( 150 + (int)( 40 * flThrob ), 8, 18, (int)( 230 * flOverall ) );
-		surface()->DrawLine( (int)x0, (int)y0, (int)x1, (int)y1 );
+		DrawStage( nBase, (int)( 255.0f * flOverall * flFrac ), nScreenW, nScreenH );
 	}
 }
 
@@ -547,7 +465,17 @@ void CHudBS2Veins::Paint( void )
 		surface()->DrawFilledRectFade( 0, 0, nBand, nScreenH, nAlpha, 0, true );
 		surface()->DrawFilledRectFade( nScreenW - nBand, 0, nScreenW, nScreenH, 0, nAlpha, true );
 
+		if ( !m_bWasActive )
+		{
+			m_nFlip = RandomInt( 0, 3 );
+		}
+		m_bWasActive = true;
+
 		DrawVeins( m_flLevel, m_flThrob, nScreenW, nScreenH );
+	}
+	else
+	{
+		m_bWasActive = false;
 	}
 
 	DrawLids( m_flLids, nScreenW, nScreenH );
