@@ -65,6 +65,7 @@
 #include "rendertexture.h"
 #include "viewpostprocess.h"
 #include "bs2_tiltshift.h"
+#include "bs_focus_blur.h"
 #include "viewdebug.h"
 
 #if defined USES_ECON_ITEMS
@@ -2095,6 +2096,10 @@ void CViewRender::RenderView( const CViewSetup &view, int nClearFlags, int whatT
 		// Main scene only: excludes cubemap captures, reflections and the HUD.
 		if ( !building_cubemaps.GetBool() )
 			BS2_DrawTiltShift( view.x, view.y, view.width, view.height );
+
+		// Full-screen focus blur follows the existing post effects; HUD stays sharp.
+		if ( !building_cubemaps.GetBool() )
+			BS_DrawFocusBlur( view.x, view.y, view.width, view.height );
 
 		if ( g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_INTEGER )
 		{

@@ -43,6 +43,11 @@ jobs:
             sp/game/mod_episodic/bin/*.dll
             sp/game/mod_episodic/materials/effects/bs2_tiltshift.vmt
             sp/game/mod_episodic/shaders/fxc/bs2_tiltshift_ps20b.vcs
+            sp/game/mod_episodic/materials/effects/bs_focus_blur.vmt
+            sp/game/mod_episodic/shaders/fxc/bs_focus_blur_ps20b.vcs
+            sp/game/mod_episodic/bs2_phase2.fgd
+            sp/game/mod_episodic/fgd/*.fgd
+            tools/focusblur/README.md
             sp/game/mod_episodic/cfg/bs2_tiltshift_*.cfg
           if-no-files-found: error
 

@@ -5,3 +5,4 @@
 @include "fgd/bs2_breath.fgd"
 @include "fgd/bs2_veins.fgd"
 @include "fgd/bs2_viewcontrol.fgd"
+@include "fgd/bs_focus_blur.fgd"
