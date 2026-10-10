@@ -1,0 +1,43 @@
+sampler2D baseMap:register(s0);
+sampler2D normalMap:register(s1);
+samplerCUBE environment:register(s2);
+sampler2D scene:register(s3);
+sampler2D rainMap:register(s4);
+float4 eye:register(c0);
+float4 tint:register(c1);
+float4 flow:register(c2);
+float4 optics:register(c3);
+float4 sun:register(c4);
+float4 sunColor:register(c5);
+float4 main(float2 uv:TEXCOORD0,float3 world:TEXCOORD1,float4 screen:TEXCOORD2):COLOR {
+ float t=flow.x*flow.y;
+ float2 uv1=uv*float2(3,1)-float2(0,t);
+ float2 uv2=uv*float2(7,2.3)+float2(t*.13,-t*.73);
+ float2 n1=tex2D(normalMap,uv1).xy*2-1;
+ float2 n2=tex2D(normalMap,uv2).xy*2-1;
+ float2 rain=tex2D(rainMap,world.xy/110).xy*2-1;
+ float2 bump=(n1+n2*.5)*flow.z+rain*flow.w;
+ // Recover the mesh's curved flow frame from position and UV derivatives.
+ float3 dx=ddx(world),dy=ddy(world);
+ float2 ux=ddx(uv),uy=ddy(uv);
+ float det=ux.x*uy.y-ux.y*uy.x;
+ float3 T=normalize((dx*uy.y-dy*ux.y)*(det<0?-1:1));
+ float3 B=normalize((-dx*uy.x+dy*ux.x)*(det<0?-1:1));
+ float3 N=normalize(cross(T,B)); N*=N.z<0?-1:1;
+ N=normalize(N+T*bump.x+B*bump.y);
+ float3 V=normalize(eye.xyz-world);
+ float fresnel=.025+.975*pow(1-saturate(dot(N,V)),5);
+ float3 reflected=texCUBE(environment,reflect(-V,N)).rgb;
+ float2 suv=screen.xy/screen.w*float2(.5,-.5)+.5;
+ float3 background=tex2D(scene,saturate(suv+bump*optics.y)).rgb;
+ float4 color=tex2D(baseMap,uv1*.5);
+ float3 water=tint.rgb*lerp(.65,1.35,color.r);
+ water=lerp(water,background*float3(.70,.91,.85),saturate(tint.a));
+ water=lerp(water,reflected,saturate(fresnel*optics.x));
+ float3 H=normalize(V+normalize(sun.xyz));
+ water+=sunColor.rgb*pow(saturate(dot(N,H)),128)*optics.w;
+ float edge=pow(saturate(abs(uv.x-.5)*2),14);
+ float foam=saturate((color.g-.52)*5)*edge*optics.z;
+ water=lerp(water,float3(.67,.76,.70),foam);
+ return float4(water,1);
+}
