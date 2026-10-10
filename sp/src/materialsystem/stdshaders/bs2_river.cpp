@@ -40,7 +40,7 @@ BEGIN_VS_SHADER( BS2_River, "BS2 curved river surface (static meshes, SM3)" )
    pShaderShadow->EnableBlending(false);
    pShaderShadow->EnableAlphaWrites(false);
    pShaderShadow->EnableSRGBWrite(true);
-   pShaderShadow->VertexShaderVertexFormat(VERTEX_POSITION,1,NULL,0);
+   pShaderShadow->VertexShaderVertexFormat(VERTEX_POSITION | VERTEX_NORMAL | VERTEX_FORMAT_COMPRESSED,1,NULL,4);
    for(int i=0;i<5;++i) pShaderShadow->EnableTexture((Sampler_t)i,true);
    pShaderShadow->EnableSRGBRead(SHADER_SAMPLER0,true);
    pShaderShadow->EnableSRGBRead(SHADER_SAMPLER2,true);
@@ -73,3 +73,4 @@ BEGIN_VS_SHADER( BS2_River, "BS2 curved river surface (static meshes, SM3)" )
   Draw();
  }
 END_SHADER
+
