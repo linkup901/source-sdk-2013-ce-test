@@ -57,6 +57,7 @@ $Project
 		$File	"Bloom.cpp"
 		$File	"screenspace_general.cpp"
 		$File "bs2_terrain4.cpp"
+        $File "bs2_river.cpp"
 	}
 
 	$Folder	"Header Files"
@@ -89,3 +90,4 @@ $Project
 	$Shaders	"stdshader_dx9_20b.txt"
 	$Shaders	"stdshader_dx9_30.txt"
 }
+
