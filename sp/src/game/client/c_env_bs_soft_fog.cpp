@@ -5,6 +5,14 @@
 #include "materialsystem/imaterialsystem.h"
 #include "tier0/memdbgon.h"
 
+// Explicit, unshadowed test source matching the example lamp. Not BSP light discovery.
+static ConVar bs2_fog_scatter("bs2_fog_scatter","0",FCVAR_CHEAT);
+static ConVar bs2_fog_light_x("bs2_fog_light_x","203.8",FCVAR_CHEAT);
+static ConVar bs2_fog_light_y("bs2_fog_light_y","50",FCVAR_CHEAT);
+static ConVar bs2_fog_light_z("bs2_fog_light_z","505.5",FCVAR_CHEAT);
+static ConVar bs2_fog_light_radius("bs2_fog_light_radius","700",FCVAR_CHEAT);
+static ConVar bs2_fog_anisotropy("bs2_fog_anisotropy","0.35",FCVAR_CHEAT);
+
 // Depth-tested view-aligned volume integration. No scene-depth texture or
 // opaque box faces; the camera may enter the volume. 16-bit vertex alpha is
 // unavailable in this API, so the default density/layer count avoids tiny
@@ -57,7 +65,20 @@ public:
      float density=m_Density*fade*(1-.65f*height)*(1+clamp(m_Noise,0.f,.5f)*noise);
      Vector ray=p-eye;float len=ray.Length();float cosine=len>1?MAX(DotProduct(ray,f)/len,.2f):1.f;
      float alpha=1-expf(-MAX(density,0.f)*step/cosine);
-     mb.Position3fv(p.Base());mb.Color4ub((unsigned char)clamp(m_Color.x,0.f,255.f),(unsigned char)clamp(m_Color.y,0.f,255.f),(unsigned char)clamp(m_Color.z,0.f,255.f),(unsigned char)clamp(alpha*255+.5f,0.f,255.f));mb.TexCoord2f(0,0,0);mb.AdvanceVertex();
+     Vector color=m_Color;
+     if(bs2_fog_scatter.GetFloat()>0 && fade>0)
+     {
+      Vector toLight=Vector(bs2_fog_light_x.GetFloat(),bs2_fog_light_y.GetFloat(),bs2_fog_light_z.GetFloat())-p;
+      float distance=VectorNormalize(toLight);
+      Vector toEye=eye-p;VectorNormalize(toEye);
+      float g=clamp(bs2_fog_anisotropy.GetFloat(),0.f,.7f);
+      float mu=DotProduct(-toLight,toEye);
+      float phase=(1-g*g)/powf(MAX(1+g*g-2*g*mu,.01f),1.5f);
+      float falloff=clamp(1-distance/MAX(bs2_fog_light_radius.GetFloat(),1.f),0.f,1.f);
+      float weight=clamp(bs2_fog_scatter.GetFloat()*falloff*falloff*phase,0.f,1.f);
+      color=color*(1-weight)+Vector(255,178,88)*weight;
+     }
+     mb.Position3fv(p.Base());mb.Color4ub((unsigned char)clamp(color.x,0.f,255.f),(unsigned char)clamp(color.y,0.f,255.f),(unsigned char)clamp(color.z,0.f,255.f),(unsigned char)clamp(alpha*255+.5f,0.f,255.f));mb.TexCoord2f(0,0,0);mb.AdvanceVertex();
     }
    }
    mb.End();mesh->Draw();
@@ -74,3 +95,4 @@ IMPLEMENT_CLIENTCLASS_DT(C_EnvBSSoftFog,DT_BSSoftFog,CEnvBSSoftFog)
  RecvPropInt(RECVINFO(m_Layers)),RecvPropFloat(RECVINFO(m_Noise)),
  RecvPropFloat(RECVINFO(m_Speed)),RecvPropBool(RECVINFO(m_Enabled)),
 END_RECV_TABLE()
+
