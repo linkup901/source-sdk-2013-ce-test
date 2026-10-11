@@ -491,6 +491,7 @@ $Project
 		$File "bs_focus_blur.cpp"
 		$File "bs_focus_blur.h"
 		$File "c_env_bs_focus_blur.cpp"
+		$File "c_env_bs_soft_fog.cpp"
 		$File	"viewpostprocess.h"
 		$File	"viewrender.cpp"
 		$File	"$SRCDIR\game\shared\voice_banmgr.cpp"
