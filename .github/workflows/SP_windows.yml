@@ -7,11 +7,17 @@ on:
       - '.github/**'
       - 'sp/src/**'
       - 'tools/tiltshift/**'
+      - 'tools/bs2/**'
+      - 'tools/terrain4/**'
+      - 'docs/BS2-Setup.md'
       - 'sp/game/mod_episodic/**'
   pull_request:
    paths:
       - 'sp/src/**'
       - 'tools/tiltshift/**'
+      - 'tools/bs2/**'
+      - 'tools/terrain4/**'
+      - 'docs/BS2-Setup.md'
       - 'sp/game/mod_episodic/**'
       - '.github/workflows/SP_windows.yml'
 
@@ -32,8 +38,28 @@ jobs:
       - name: Locate MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Verify runtime assets and installer
+        run: |
+          ./tools/bs2/verify-assets.ps1
+          ./tools/bs2/test-install.ps1
+
       - name: Build and verify DLLs
         run: ./tools/tiltshift/build_client.ps1
+
+      - name: Build combined terrain and river shader DLL
+        run: |
+          ./tools/terrain4/Verify-GpuPrograms.ps1
+          ./tools/terrain4/build-dll.ps1
+
+      - name: Package the complete runtime
+        run: ./tools/bs2/package.ps1
+
+      - name: Upload complete install package
+        uses: actions/upload-artifact@v4
+        with:
+          name: bs2-combined-install
+          path: bs2-package/
+          if-no-files-found: error
 
       - name: Upload product
         uses: actions/upload-artifact@v4
@@ -47,7 +73,17 @@ jobs:
             sp/game/mod_episodic/shaders/fxc/bs_focus_blur_ps20b.vcs
             sp/game/mod_episodic/bs2_phase2.fgd
             sp/game/mod_episodic/fgd/*.fgd
+            sp/game/mod_episodic/bs_soft_fog.fgd
+            sp/game/mod_episodic/materials/bs2/fog/*
+            sp/game/mod_episodic/materials/bs2/veins/*
+            sp/game/mod_episodic/materials/vgui/bs2/veins/*
+            sp/game/mod_episodic/materials/models/**
+            sp/game/mod_episodic/materials/particle/bs2_fog/*
+            sp/game/mod_episodic/models/**
+            sp/game/mod_episodic/particles/**
+            sp/game/mod_episodic/resource/D-DIN*
+            sp/game/mod_episodic/credits.txt
+            sp/game/mod_episodic/cfg/skill*.cfg
             tools/focusblur/README.md
             sp/game/mod_episodic/cfg/bs2_tiltshift_*.cfg
           if-no-files-found: error
-
