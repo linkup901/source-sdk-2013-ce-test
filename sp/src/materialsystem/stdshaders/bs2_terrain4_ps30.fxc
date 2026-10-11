@@ -1,0 +1,21 @@
+sampler2D a:register(s0), b:register(s1), c:register(s2), d:register(s3);
+sampler2D mask:register(s4), lightmap:register(s5);
+sampler2D na:register(s6), nb:register(s7), nc:register(s8), nd:register(s9);
+float4 bounds:register(c0); // lower-left world XY, inverse XY extent
+float4 scales:register(c1); // independent tiling multipliers
+float4 controls:register(c2); // weight contrast, lightmap scale, debug mask, normal strength
+float4 fogParams:register(c3), fogColor:register(c4);
+float4 main(float2 uv:TEXCOORD0,float4 lm:TEXCOORD1,float2 lm3:TEXCOORD2,float4 world:TEXCOORD3):COLOR {
+ float2 muv=saturate((world.xy-bounds.xy)*bounds.zw);
+ float4 w=max(tex2D(mask,muv),0);
+ w=pow(max(w,0.000001),max(controls.x,0.01)); w/=max(dot(w,1),0.000001);
+ float3 albedo=tex2D(a,uv*scales.x).rgb*w.x+tex2D(b,uv*scales.y).rgb*w.y+tex2D(c,uv*scales.z).rgb*w.z+tex2D(d,uv*scales.w).rgb*w.w;
+ float3 n=(tex2D(na,uv*scales.x).rgb*w.x+tex2D(nb,uv*scales.y).rgb*w.y+tex2D(nc,uv*scales.z).rgb*w.z+tex2D(nd,uv*scales.w).rgb*w.w)*2-1;
+ n.xy*=controls.w; n=normalize(n);
+ float3 dp=saturate(float3(dot(n,float3(0.81649658,0,0.57735027)),dot(n,float3(-0.40824829,0.70710678,0.57735027)),dot(n,float3(-0.40824829,-0.70710678,0.57735027)))); dp*=dp;
+ float3 light=(tex2D(lightmap,lm.xy).rgb*dp.x+tex2D(lightmap,lm.zw).rgb*dp.y+tex2D(lightmap,lm3).rgb*dp.z)/max(dot(dp,1),0.0001);
+ float3 color=albedo*light*controls.y;
+ if(controls.z>0.5) color=w.rgb+w.w*float3(0.7,0.7,0.7);
+ float f=saturate(min(fogParams.z,world.w*fogParams.w-fogParams.x));
+ return float4(lerp(color,fogColor.rgb,f),1);
+}

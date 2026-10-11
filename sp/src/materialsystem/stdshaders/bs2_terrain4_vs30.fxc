@@ -1,0 +1,8 @@
+float4x4 viewProj : register(c8);
+struct In { float4 p:POSITION; float2 uv:TEXCOORD0; float2 lm:TEXCOORD1; float2 off:TEXCOORD2; };
+struct Out { float4 p:POSITION; float2 uv:TEXCOORD0; float4 lm:TEXCOORD1; float2 lm3:TEXCOORD2; float4 world:TEXCOORD3; };
+Out main(In v) {
+ Out o; o.p=mul(v.p,viewProj); o.uv=v.uv;
+ o.lm.xy=v.lm+v.off; o.lm.zw=v.lm+2*v.off; o.lm3=v.lm+3*v.off;
+ o.world=float4(v.p.xyz,o.p.z); return o;
+}
