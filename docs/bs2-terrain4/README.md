@@ -1,43 +1,48 @@
-# BS2 four-way terrain review
+# BS2 four-way terrain
 
-Built on `codex/bs2-combined` commit 5c1ccfd, including the October 6 Phase 2 code and soft fog. Isolated shader review branch: `codex/bs2-terrain4-review-20261011`. No campaign VMF or installed mod DLL has been replaced.
+`BS2_Terrain4` blends the existing downhill gravel, forest loam, trail mud and mountain rock color and normal textures on a brush or displacement. An RGBA mask places the four surfaces in world XY, so a road shoulder, muddy rut and rock outcrop can share one terrain patch. This is opaque ground, not water; visual mud does not trigger buggy splashes.
 
-## Materials chosen from the schematics and current VMFs
+## Install and try it
 
-The downhill trail and forest-transition schematic sheets show a 320 HU gravel centre, flush shoulders, forest loam, muddy low spots/ruts, and exposed rock around outcrops. The current downhill VMFs already use `bs2/dhv3/blend_tmloam_rock` and gravel/forest pairs. This prototype uses their existing texture assets:
+Download `bs2-terrain4-install` from the **BS2 Four-Way Terrain Review** workflow on `codex/bs2-combined`. Extract it and run:
 
-- Gravel: `bs2/terrain_mines_261011/downhill_gravel`
-- Loam: `bs2/terrain_mines_261011/forest_loam`
-- Mud: `bs2/terrain_mines_261011/trail_mud`
-- Rock: `bs2/minekit/mountain_rock`
+```powershell
+./Install-Terrain4.ps1 -ModPath 'C:/path/to/BS2-TiltShift-Preview'
+```
 
-The source-texture manifest records the exact input hashes. Primary application sites are road-to-forest shoulders, mud ruts/drainage low spots, and rocky road apexes. A four-way material is unnecessary on uniform rock walls or timber structures.
+The installer backs up replaced files, verifies SHA-256 hashes and writes `TERRAIN4-INSTALL.json`. It installs the combined **terrain + river** shader DLL, four GPU programs and the terrain assets. It leaves client/server DLLs and campaign maps alone. The glass design source is separate and unbuilt; this release does not install that design. Retain any unrelated custom shader DLL rather than replacing it blindly.
 
-## Hammer++ workflow
+Compile `examples/bs2_terrain4_play_261011.vmf` with your normal SDK/CompilePal setup, using the installed mod as the game directory. Copy the BSP to the mod's `maps` folder and run:
 
-Hammer displacement Paint Alpha supplies one scalar blend channel, which normally controls two textures. AI does not change that editor limitation. This material uses an independently authored **RGBA weight mask**, with four channels: R gravel, G loam, B mud, A rock. Alpha is a weight, not transparency. The shader normalizes all four weights, so a mixture remains stable. All-zero pixels should be avoided; they become an equal mixture through a small numerical floor.
+```text
+map bs2_terrain4_play_261011
+```
 
-1. Apply `bs2/terrain4/trail_fourway` to a brush top or displacement. It is an opaque terrain material, not a model material.
-2. Make a uniquely named VMT/mask pair for each terrain region. `$maskbounds` is `[minimumX minimumY width height]` in world units. Example patch: `[-512 -512 1024 1024]`.
-3. The mask is projected onto world XY, independently of the repeating surface UV. Adjacent displacements using the same VMT share the same mask and therefore blend continuously. Use identical texture alignment/scale across their boundaries. Sew geometry separately.
-4. The four textures still tile according to Hammer face UV. `$layerscales` provides four independent tiling multipliers. `$blendcontrast` changes the weight transition sharpness; 1 retains the authored mask.
-5. Paint the mask in an image editor that preserves RGBA, or generate it from surveyed terrain/road geometry. Rebuild its **linear, clamp-to-edge, mipmapped RGBA8888** VTF. Do not gamma-correct, JPEG-compress, or discard alpha from the mask.
-6. Refresh `%tooltexture` from the weighted color blend. It provides a material swatch, **not a spatially accurate world-mask preview on the runtime face**, because Hammer repeats it with the face UV. For accurate placement, open `bs2_terrain4_hammer_preview_261011.vmf`: this separate copy uses a stock preview material and one mask-sized UV tile. It shows the whole blend layout in Hammer++. Keep that preview UV separate from the runtime texture tiling. Recompile geometry/lightmaps after material changes, then inspect the runtime result.
+The local delivery also includes a compiled example. The Hammer preview VMF is an editor aid and uses a stock shader; use the **play** VMF for runtime tests.
 
-The example generator demonstrates an S-shaped centre, loam shoulders, a muddy rut, and rock along the outer edges. It is a test pattern, not a mask already fitted to the entire campaign. For adoption, survey the latest saved VMF, generate a mask covering its region, and review a separate VMF copy before replacing authored materials.
+## Use in Hammer++
 
-## Build and preview
+No new FGD or entity is needed. Apply `bs2/terrain4/trail_fourway` to a displacement or brush top. Hammer's displacement Paint Alpha still provides only one channel; it cannot paint all four weights. Author the external RGBA mask instead.
 
-`build-example.py` creates the mask, material, matching Hammer preview, source hashes and a small real displacement test map. `build-vcs.ps1` compiles the two GPU programs with the installed SDK's shader compiler. The shader DLL was built by GitHub Actions, run 38141457243. `Play Terrain Review.cmd` opens the isolated example for walking; `Launch-Terrain.ps1 -Capture` records an overview and exits.
+1. Copy the VMT and `trail_weights.png` under unique names for your map region. Preserve RGBA: **R = gravel, G = loam, B = mud, A = rock**. Alpha is a material weight, not transparency. Do not flatten it. Pure layers are `(255,0,0,0)`, `(0,255,0,0)`, `(0,0,255,0)`, `(0,0,0,255)`. Mixtures interpolate; black falls back to gravel.
+2. Convert your edited PNG to a linear, clamp-to-edge, mipmapped VTF. Python requires Pillow and numpy:
 
-The shader needs the matching `game_shader_dx9.dll`, `bs2_terrain4_vs30.vcs`, `bs2_terrain4_ps30.vcs`, VMT, mask and all eight source color/normal textures. The isolated DLL is built from the combined repository's shader project and this addition; it does **not** yet consolidate the separate river/glass shader DLL projects. Do not overwrite a production custom shader DLL with this test DLL.
+```text
+python make-mask.py my_trail.png C:/path/to/mod/materials/bs2/terrain4/my_trail.vtf
+```
 
-## Limits and validation
+3. In the new VMT set `$blendmask` to `bs2/terrain4/my_trail` and `$maskbounds` to `[minimumX minimumY width height]` in Hammer world units. The example covers `[-512 -512 1024 1024]`. Image top maps toward minimum Y; image right toward positive X. Width and height must be positive. Mask pixel dimensions must be powers of two.
+4. Give adjacent displacements in the same region the same VMT and sew their geometry. Keep face texture alignment consistent. World-mask placement is independent of face UV; changing UV affects detail tiling, not the positions of the material regions.
+5. `$layerscales "[1 1 1 1]"` multiplies each layer's tiling. `$blendcontrast` defaults to 1; values above 1 sharpen transitions. `$normalstrength` scales normal detail. `$debugweights "1"` temporarily displays the weights in-game.
 
-Four base-color samples, four normal samples, one mask sample and three directional lightmap samples per pixel. This is more expensive than a two-texture transition; avoid applying it everywhere without measuring. Normals are blended before directional lightmap shading. The material is opaque, uses world-space masks, has SM3 support and a single-texture fallback on older hardware. LDR geometry, visibility, lighting compilation and an in-game render have been checked.
+The swatch uses `%tooltexture`; it is not a live four-layer Hammer render. `bs2_terrain4_hammer_preview_261011.vmf` demonstrates a baked full-mask preview with separate UV alignment. Inspect the actual shader in-game after compiling. Adopt campaign materials in a review VMF first; the supplied example mask is not fitted to your campaign.
 
-This prototype has range-fog support. Underwater height fog, flashlight passes, HDR correctness, steep/vertical rock projection, large campaign performance and four-material physical footstep classification need additional integration checks. There is no parallax, automatic puddle reflection or slope material selection in this prototype. Its single `$surfaceprop` is gravel across the patch. A visually muddy channel is not a water volume and cannot alone trigger wheel splashes.
+## Lighting, cost and limits
 
-## Fog DLL answer
+Four normals are blended before directional lightmap shading. The shader supports an additive flashlight pass, shadow depth filtering, LDR/HDR lightmap scaling, range fog and underwater height fog. The same DLL includes the existing `BS2_River` shader. Terrain needs SM3 and falls back to `LightmappedGeneric` on older hardware.
 
-**Yes, for `client.dll` and `server.dll` from combined soft-fog run 38140696667, built at 5c1ccfd.** That commit descends from the October 6 Phase 2/HUD/font/vein changes. The build succeeded. The pair is available in `../soft-fog-review-20261011/combined-dlls/`. Earlier standalone fog-preview DLLs are not the combined build. Preserve existing Phase 2 assets, back up the installed DLL pair, and replace both together; the code confirmation does not validate unrelated asset replacements.
+The regular pass uses four color, four normal, one mask and three directional lightmap samples per pixel. Use it for downhill road/forest shoulders, ruts and rock edges; uniform ground can retain cheaper stock materials. World-XY projection is intended for ground, not vertical cliffs. There is no parallax or automatic slope selection.
+
+One VMT has one physical `$surfaceprop` (the preset uses gravel). The visual channels do not independently select footstep, friction or tire-dust types. Use separate physical regions if gameplay requires those differences. This workflow does not change Hammer's painting tools.
+
+Sources, reusable assets, examples, GPU programs and packaging tools are in the repository. The workflow builds the Windows DLL rather than committing it as an opaque source replacement.
