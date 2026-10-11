@@ -12,7 +12,17 @@ Download `bs2-terrain4-install` from the **BS2 Four-Way Terrain Review** workflo
 
 The installer backs up replaced files, verifies SHA-256 hashes and writes `TERRAIN4-INSTALL.json`. It installs the combined **terrain + river** shader DLL, four GPU programs and the terrain assets. It leaves client/server DLLs and campaign maps alone. The glass design source is separate and unbuilt; this release does not install that design. Retain any unrelated custom shader DLL rather than replacing it blindly.
 
-Compile `examples/bs2_terrain4_play_261011.vmf` with your normal SDK/CompilePal setup, using the installed mod as the game directory. Copy the BSP to the mod's `maps` folder and run:
+Compile `examples/bs2_terrain4_play_261011.vmf` with the supplied helper:
+
+```powershell
+./Compile-TerrainMap.ps1 -ModPath 'C:/path/to/BS2-TiltShift-Preview' -VmfPath './examples/bs2_terrain4_play_261011.vmf'
+```
+
+It runs VBSP, VVIS and VRAD with both LDR and HDR lighting, verifies that both lightmap lumps exist, and installs the BSP with a backup. The stock compiler uses an empty shader API and does not recognize the custom DX9 shader: **compiling directly against runtime materials can produce unlit terrain**. The helper builds an isolated compile overlay with standard `LightmappedGeneric` versions of terrain VMTs. Names, base textures, normal maps and surface properties stay the same; runtime VMTs are never swapped. Do not pack the overlay VMTs into your BSP.
+
+For CompilePal, first run `Prepare-TerrainCompile.ps1 -ModPath 'C:/path/to/mod' -OutputPath 'C:/path/to/terrain-compile-game'`. Point the compiler processes' `-game` argument at that overlay. Use your normal runtime mod for launching and packing; keep packing from the overlay disabled. Re-run the preparation after adding or editing terrain VMTs. Use `-both` on VRAD. The automatic helper is the tested route.
+
+Then run:
 
 ```text
 map bs2_terrain4_play_261011
