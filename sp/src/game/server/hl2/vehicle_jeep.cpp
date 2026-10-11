@@ -497,6 +497,8 @@ void CPropJeep::HandleWater( void )
 			// Create an entry/exit splash!
 			if ( m_WaterData.m_bWheelInWater[iWheel] != m_WaterData.m_bWheelWasInWater[iWheel] )
 			{
+				if ( bs2_wheel_splash_debug.GetBool() )
+					Msg( "BS2 wheel %d contact %s\n", iWheel, m_WaterData.m_bWheelInWater[iWheel] ? "water" : "dry" );
 				CreateSplash( m_WaterData.m_vecWheelContactPoints[iWheel] );
 				CreateRipple( m_WaterData.m_vecWheelContactPoints[iWheel] );
 			}
@@ -524,7 +526,7 @@ void CPropJeep::HandleWater( void )
 						spray.m_flScale = RemapValClamped( speed, 20.0f, 600.0f, 0.25f, 1.0f ) * clamp( bs2_wheel_splash_scale.GetFloat(), 0.0f, 2.0f );
 						DispatchEffect( "BS2WheelSpray", spray );
 						if ( bs2_wheel_splash_debug.GetBool() )
-							Msg( "BS2 wheel %d water spray speed %.1f surface %.1f\\n", iWheel, speed, spray.m_vOrigin.z );
+							Msg( "BS2 wheel %d water spray speed %.1f surface %.1f\n", iWheel, speed, spray.m_vOrigin.z );
 					}
 
 				}
