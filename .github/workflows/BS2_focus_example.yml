@@ -1,0 +1,18 @@
+name: BS2_Focus_Example
+on:
+  push:
+    branches: ['codex/bs2-river-focus-example-20261011']
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - uses: microsoft/setup-msbuild@v2
+      - run: ./tools/tiltshift/build_client.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs2-river-focus-dlls
+          path: sp/game/mod_episodic/bin/*.dll
