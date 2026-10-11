@@ -1,0 +1,27 @@
+name: BS2 Four-Way Terrain Review
+on:
+  push:
+    branches: [codex/bs2-terrain4-review-20261011, codex/bs2-combined]
+  workflow_dispatch:
+jobs:
+  shader:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - uses: microsoft/setup-msbuild@v2
+      - run: ./tools/terrain4/Verify-GpuPrograms.ps1
+      - run: ./tools/terrain4/build-dll.ps1
+      - run: ./tools/terrain4/package.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs2-terrain4-shader
+          path: sp/game/mod_episodic/bin/game_shader_dx9.dll
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs2-terrain4-install
+          path: terrain4-package/
+          if-no-files-found: error

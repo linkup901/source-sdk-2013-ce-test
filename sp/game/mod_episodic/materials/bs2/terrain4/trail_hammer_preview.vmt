@@ -1,0 +1,5 @@
+"LightmappedGeneric"
+{
+ "$basetexture" "bs2/terrain4/trail_preview"
+ "$surfaceprop" "gravel"
+}
