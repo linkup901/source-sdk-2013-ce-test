@@ -24,3 +24,9 @@ An actual driven buggy crossed the water in the engine. All four wheels emitted 
 No campaign VMF was changed and these splash DLLs have not replaced the production preview pair. The separate fog-only combined pair was installed in BS2-TiltShift-Preview on October 11 with a backup and COMBINED-FOG-INSTALL.json.
 
 At default scale, the four wheels spawn roughly 240 droplets/sec at the mean ripple cadence, each lasting at most 0.55 seconds. This is a bounded particle-count estimate, not a measured campaign frame-time benchmark. Long downhill runs, multiplayer, slime and save/load visual continuity have not been profiled.
+
+
+## Density adjustment
+
+`bs2_wheel_splash_density 2` is the new default: twice the previous droplet count without changing spray speed or height. Set it to `1` for the earlier density, or `3` for the maximum. The value is saved in config and clamped to 0.5–3. Each event is capped at 72 droplets; default high-speed four-wheel spray is approximately 480 droplets/sec at mean cadence, not a measured frame-time benchmark.
+

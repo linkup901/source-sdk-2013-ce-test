@@ -604,6 +604,7 @@ void CSplashParticle::SimulateParticles( CParticleSimulateIterator *pIterator )
 
 
 // Moving buggy tire spray. Uses shipped splash materials; no PCF registration needed.
+static ConVar bs2_wheel_splash_density( "bs2_wheel_splash_density", "2", FCVAR_ARCHIVE, "Buggy water spray density multiplier (0.5-3)." );
 void BS2WheelSprayCallback( const CEffectData &data )
 {
 	if ( !cl_show_splashes.GetBool() || data.m_flScale <= 0.0f )
@@ -619,7 +620,8 @@ void BS2WheelSprayCallback( const CEffectData &data )
 	emitter->SetFlag( bitsPARTICLE_TRAIL_VELOCITY_DAMPEN );
 	emitter->SetVelocityDampen( 1.5f );
 	PMaterialHandle material = ParticleMgr()->GetPMaterial( "effects/splash2" );
-	const int count = clamp( int(12 * scale), 3, 24 );
+	const float density = clamp( bs2_wheel_splash_density.GetFloat(), 0.5f, 3.0f );
+	const int count = clamp( int(12 * scale * density), 3, 72 );
 	for ( int i = 0; i < count; ++i )
 	{
 		Vector origin = data.m_vOrigin + RandomVector(-3,3);
@@ -638,3 +640,4 @@ void BS2WheelSprayCallback( const CEffectData &data )
 	}
 }
 DECLARE_CLIENT_EFFECT( "BS2WheelSpray", BS2WheelSprayCallback );
+
