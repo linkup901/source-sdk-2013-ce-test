@@ -601,3 +601,43 @@ void CSplashParticle::SimulateParticles( CParticleSimulateIterator *pIterator )
 		pParticle = (SimpleParticle*)pIterator->GetNext();
 	}
 }
+
+
+// Moving buggy tire spray. Uses shipped splash materials; no PCF registration needed.
+static ConVar bs2_wheel_splash_density( "bs2_wheel_splash_density", "2", FCVAR_ARCHIVE, "Buggy water spray density multiplier (0.5-3)." );
+void BS2WheelSprayCallback( const CEffectData &data )
+{
+	if ( !cl_show_splashes.GetBool() || data.m_flScale <= 0.0f )
+		return;
+	const float scale = clamp( data.m_flScale, 0.0f, 2.0f );
+	Vector color;
+	float luminosity;
+	FX_GetSplashLighting( data.m_vOrigin + Vector(0,0,4), &color, &luminosity );
+	CSmartPtr<CTrailParticles> emitter = CTrailParticles::Create( "BS2WheelSpray" );
+	if ( !emitter ) return;
+	emitter->SetSortOrigin( data.m_vOrigin );
+	emitter->m_ParticleCollision.SetGravity( 600.0f );
+	emitter->SetFlag( bitsPARTICLE_TRAIL_VELOCITY_DAMPEN );
+	emitter->SetVelocityDampen( 1.5f );
+	PMaterialHandle material = ParticleMgr()->GetPMaterial( "effects/splash2" );
+	const float density = clamp( bs2_wheel_splash_density.GetFloat(), 0.5f, 3.0f );
+	const int count = clamp( int(12 * scale * density), 3, 72 );
+	for ( int i = 0; i < count; ++i )
+	{
+		Vector origin = data.m_vOrigin + RandomVector(-3,3);
+		TrailParticle *p = (TrailParticle *)emitter->AddParticle( sizeof(TrailParticle), material, origin );
+		if ( !p ) break;
+		p->m_flLifetime = 0;
+		p->m_flDieTime = random->RandomFloat(0.25f,0.55f);
+		p->m_vecVelocity = data.m_vStart * 0.18f + data.m_vNormal * random->RandomFloat(35,90) * scale + RandomVector(-18,18);
+		p->m_vecVelocity.z = random->RandomFloat(70,150) * scale;
+		p->m_flWidth = random->RandomFloat(0.7f,1.6f);
+		p->m_flLength = random->RandomFloat(0.015f,0.035f);
+		p->m_color.r = clamp(color.x * 255,0.0f,255.0f);
+		p->m_color.g = clamp(color.y * 255,0.0f,255.0f);
+		p->m_color.b = clamp(color.z * 255,0.0f,255.0f);
+		p->m_color.a = clamp(luminosity * 220,40.0f,220.0f);
+	}
+}
+DECLARE_CLIENT_EFFECT( "BS2WheelSpray", BS2WheelSprayCallback );
+
