@@ -323,6 +323,7 @@ $Project
 		$File	"env_projectedtexture.cpp"
 		$File	"env_screenoverlay.cpp"
 		$File	"env_bs_focus_blur.cpp"
+		$File	"env_bs_soft_fog.cpp"
 		$File	"env_texturetoggle.cpp"
 		$File	"env_tonemap_controller.cpp"
 		$File	"$SRCDIR\game\shared\env_wind_shared.cpp"
