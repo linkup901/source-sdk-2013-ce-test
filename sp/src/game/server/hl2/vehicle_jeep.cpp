@@ -33,6 +33,10 @@
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
+ConVar bs2_wheel_splash_enable( "bs2_wheel_splash_enable", "1", FCVAR_ARCHIVE );
+ConVar bs2_wheel_splash_scale( "bs2_wheel_splash_scale", "1", FCVAR_ARCHIVE );
+ConVar bs2_wheel_splash_debug( "bs2_wheel_splash_debug", "0", FCVAR_CHEAT );
+
 #define	VEHICLE_HITBOX_DRIVER		1
 #define LOCK_SPEED					10
 #define JEEP_GUN_YAW				"vehicle_weapon_yaw"
@@ -505,6 +509,24 @@ void CPropJeep::HandleWater( void )
 					// Stagger ripple times
 					m_WaterData.m_flNextRippleTime[iWheel] = gpGlobals->curtime + RandomFloat( 0.1, 0.3 );
 					CreateRipple( m_WaterData.m_vecWheelContactPoints[iWheel] );
+					// A moving tire throws droplets from the water surface, not the river bed.
+					Vector velocity = GetSmoothedVelocity();
+					float speed = velocity.Length2D();
+					if ( bs2_wheel_splash_enable.GetBool() && speed > 20.0f )
+					{
+						CEffectData spray;
+						spray.m_vOrigin = m_WaterData.m_vecWheelContactPoints[iWheel];
+						spray.m_vOrigin.z = UTIL_FindWaterSurface( spray.m_vOrigin, spray.m_vOrigin.z, spray.m_vOrigin.z + 64.0f ) + 1.0f;
+						spray.m_vStart = velocity;
+						Vector right;
+						GetVectors( NULL, &right, NULL );
+						spray.m_vNormal = right * ((iWheel & 1) ? 1.0f : -1.0f);
+						spray.m_flScale = RemapValClamped( speed, 20.0f, 600.0f, 0.25f, 1.0f ) * clamp( bs2_wheel_splash_scale.GetFloat(), 0.0f, 2.0f );
+						DispatchEffect( "BS2WheelSpray", spray );
+						if ( bs2_wheel_splash_debug.GetBool() )
+							Msg( "BS2 wheel %d water spray speed %.1f surface %.1f\\n", iWheel, speed, spray.m_vOrigin.z );
+					}
+
 				}
 			}
 		}
@@ -527,6 +549,8 @@ bool CPropJeep::CheckWater( void )
 	// Check all four wheels.
 	for ( int iWheel = 0; iWheel < JEEP_WHEEL_COUNT; ++iWheel )
 	{
+		// Clear stale submerged state when a wheel loses ground contact.
+		m_WaterData.m_bWheelInWater[iWheel] = false;
 		// Get the current wheel and get its contact point.
 		IPhysicsObject *pWheel = m_VehiclePhysics.GetWheel( iWheel );
 		if ( !pWheel )

@@ -1,0 +1,21 @@
+name: BS2_Buggy_Splash
+on:
+  push:
+    branches: [codex/bs2-buggy-splash-review-20261011]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build combined CE client and server
+        shell: pwsh
+        run: ./tools/tiltshift/build_client.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs2-buggy-splash-dlls
+          path: sp/game/mod_episodic/bin/*.dll

@@ -665,12 +665,17 @@ int CFourWheelVehiclePhysics::DrawDebugTextOverlays( int nOffset )
 void CFourWheelVehiclePhysics::PlaceWheelDust( int wheelIndex, bool ignoreSpeed )
 {
 	// New vehicles handle this deeper into the base class
-	if ( hl2_episodic.GetBool() )
+	if ( hl2_episodic.GetBool() && !FClassnameIs( m_pOuter, "prop_vehicle_jeep" ) )
 		return;
 
 	// Old dust
 	Vector	vecPos, vecVel;
-	m_pVehicle->GetWheelContactPoint( wheelIndex, &vecPos, NULL );
+	if ( !m_pVehicle->GetWheelContactPoint( wheelIndex, &vecPos, NULL ) )
+		return;
+
+	// Wet contact emits spray in CPropJeep::HandleWater; never mix it with dust.
+	if ( UTIL_PointContents( vecPos ) & MASK_WATER )
+		return;
 
 	vecVel.Random( -1.0f, 1.0f );
 	vecVel.z = random->RandomFloat( 0.3f, 1.0f );
