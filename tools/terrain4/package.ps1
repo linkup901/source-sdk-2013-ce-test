@@ -4,7 +4,9 @@ $modRoot=Join-Path $repoRoot 'sp\game\mod_episodic'
 $packageRoot=Join-Path $repoRoot 'terrain4-package'
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot 'runtime\bin') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot 'runtime\cfg') | Out-Null
-Copy-Item -LiteralPath (Join-Path $modRoot 'cfg\terrain_start.cfg') -Destination (Join-Path $packageRoot 'runtime\cfg')
+foreach($cfg in @('terrain_start.cfg','terrain_play.cfg')){
+ Copy-Item -LiteralPath (Join-Path $modRoot ('cfg\'+$cfg)) -Destination (Join-Path $packageRoot 'runtime\cfg')
+}
 Copy-Item -LiteralPath (Join-Path $modRoot 'bin\game_shader_dx9.dll') -Destination (Join-Path $packageRoot 'runtime\bin')
 foreach($folder in @('terrain4','terrain_mines_261011','minekit')){
  $target=Join-Path $packageRoot ('runtime\materials\bs2\'+$folder)

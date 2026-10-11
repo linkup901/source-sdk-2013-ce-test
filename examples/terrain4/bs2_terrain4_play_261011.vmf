@@ -686,7 +686,7 @@ entity
 	"classname" "logic_auto"
 	connections
 	{
-		"OnMapSpawn" "terrain_capture,Command,exec terrain_start.cfg,3,-1"
+		"OnMapSpawn" "terrain_capture,Command,exec terrain_play.cfg,3,-1"
 		
 		
 	}
@@ -698,3 +698,4 @@ entity
 		"logicalpos" "[0 0]"
 	}
 }
+
