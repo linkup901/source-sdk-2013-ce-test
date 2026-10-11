@@ -1,0 +1,20 @@
+name: BS2 River shader review
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/bs2-river-review-20261010]
+jobs:
+  shader:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - uses: microsoft/setup-msbuild@v2
+      - run: ./tools/river/build-dll.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bs2-river-shader-win32
+          path: sp/game/mod_episodic/bin/game_shader_dx9.dll
+          if-no-files-found: error
