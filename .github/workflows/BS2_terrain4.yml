@@ -12,6 +12,7 @@ jobs:
         with:
           arch: x86
       - uses: microsoft/setup-msbuild@v2
+      - run: ./tools/terrain4/Verify-GpuPrograms.ps1
       - run: ./tools/terrain4/build-dll.ps1
       - run: ./tools/terrain4/package.ps1
       - uses: actions/upload-artifact@v4
