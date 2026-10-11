@@ -36,7 +36,7 @@ BEGIN_VS_SHADER(BS2_Terrain4,"Four-layer lightmapped brush/displacement terrain 
    pShaderShadow->EnableSRGBRead(SHADER_SAMPLER5,true);
    pShaderShadow->EnableTexture(SHADER_SAMPLER10,true);
    pShaderShadow->EnableTexture(SHADER_SAMPLER11,true);
-   pShaderShadow->EnableShadowDepthFiltering(SHADER_SAMPLER11);
+   pShaderShadow->SetShadowDepthFiltering(SHADER_SAMPLER11);
    pShaderShadow->SetVertexShader("bs2_terrain4_vs30",0);
    pShaderShadow->SetPixelShader("bs2_terrain4_ps30",0);
    if(flashlight) {
@@ -55,7 +55,7 @@ BEGIN_VS_SHADER(BS2_Terrain4,"Four-layer lightmapped brush/displacement terrain 
    float control[4]={params[BLENDCONTRAST]->GetFloatValue(),pShaderAPI->GetLightMapScaleFactor(),(float)params[DEBUGWEIGHTS]->GetIntValue(),params[NORMALSTRENGTH]->GetFloatValue()}; pShaderAPI->SetPixelShaderConstant(2,control);
    pShaderAPI->SetPixelShaderFogParams(3); unsigned char rgb[3]; pShaderAPI->GetSceneFogColor(rgb); float fog[4]={rgb[0]/255.0f,rgb[1]/255.0f,rgb[2]/255.0f,0}; pShaderAPI->SetPixelShaderConstant(4,fog);
    float eye[4]={0,0,0,0}; pShaderAPI->GetWorldSpaceCameraPosition(eye);
-   eye[3]=(float)pShaderAPI->GetPixelFogCombo1(true);
+   eye[3]=pShaderAPI->GetSceneFogMode() == MATERIAL_FOG_LINEAR_BELOW_FOG_Z ? 2.0f : 1.0f;
    pShaderAPI->SetPixelShaderConstant(5,eye);
    float mode[4]={flashlight ? 1.0f : 0.0f,0,0,0};
    if(flashlight) {
@@ -80,3 +80,4 @@ BEGIN_VS_SHADER(BS2_Terrain4,"Four-layer lightmapped brush/displacement terrain 
   } Draw();
  }
 END_SHADER
+
