@@ -1,0 +1,8 @@
+@PointClass base(Targetname) = env_bs_focus_blur : "Black Stasis full-screen focus blur (singleplayer)"
+[
+    initialblur(float) : "Initial blur (0 sharp, 1 blurred)" : 0
+    radius(float) : "Maximum blur support radius in pixels (0-32)" : 32
+    input BlurIn(float) : "Blurred to sharp: transition duration in seconds. Holds sharp."
+    input BlurOut(float) : "Sharp to blurred: transition duration in seconds. Holds blurred."
+    input SetBlur(float) : "Set immediately: 0 sharp, 1 blurred. Intermediate values allowed."
+]
