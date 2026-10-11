@@ -11,7 +11,10 @@ Push-Location $source
 try {
     & '.\devtools\bin\vpc.exe' /episodic /2013 +game /mksln bs2_tiltshift.sln
     if ($LASTEXITCODE -ne 0) { throw 'VPC project generation failed.' }
-    & $MsBuild bs2_tiltshift.sln /m:2 /p:Configuration=Release /p:Platform=Win32 /p:WindowsTargetPlatformVersion=10.0 /verbosity:minimal
+    foreach ($project in @('mathlib/mathlib.vcxproj','tier1/tier1.vcxproj','vgui2/vgui_controls/vgui_controls.vcxproj','raytrace/raytrace.vcxproj','game/client/client_episodic.vcxproj','game/server/server_episodic.vcxproj')) {
+        & $MsBuild $project /m:2 /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v143 /p:WindowsTargetPlatformVersion=10.0 /verbosity:minimal
+        if ($LASTEXITCODE -ne 0) { throw "C++ build failed: $project" }
+    }
     if ($LASTEXITCODE -ne 0) { throw 'C++ build failed. Do not deploy a partial build.' }
 } finally { Pop-Location }
 foreach ($file in @('client.dll','server.dll')) {
