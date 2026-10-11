@@ -1,7 +1,7 @@
 name: BS2_Buggy_Splash
 on:
   push:
-    branches: [codex/bs2-buggy-splash-review-20261011]
+    branches: [codex/bs2-wheel-entry-splashes-20261011]
   workflow_dispatch:
 jobs:
   build:
