@@ -1,0 +1,18 @@
+"BS2_Terrain4"
+{
+ "$basetexture" "bs2/terrain_mines_261011/downhill_gravel"
+ "$bumpmap" "bs2/terrain_mines_261011/downhill_gravel_normal"
+ "$basetexture2" "bs2/terrain_mines_261011/forest_loam"
+ "$bumpmap2" "bs2/terrain_mines_261011/forest_loam_normal"
+ "$basetexture3" "bs2/terrain_mines_261011/trail_mud"
+ "$bumpmap3" "bs2/terrain_mines_261011/trail_mud_normal"
+ "$basetexture4" "bs2/minekit/mountain_rock"
+ "$bumpmap4" "bs2/minekit/mountain_rock_normal"
+ "$blendmask" "bs2/terrain4/trail_weights"
+ "$maskbounds" "[-512 -512 1024 1024]"
+ "$layerscales" "[1 1 1 1]"
+ "$blendcontrast" "1"
+ "$surfaceprop" "gravel"
+ "%tooltexture" "bs2/terrain4/trail_preview"
+ "%keywords" "bs2,terrain,fourway,gravel,loam,mud,rock"
+}
