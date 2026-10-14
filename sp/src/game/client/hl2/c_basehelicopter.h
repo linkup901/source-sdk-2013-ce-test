@@ -22,11 +22,20 @@ public:
 
 	C_BaseHelicopter();
 
+	virtual int DrawModel( int flags );
+	virtual void GetRenderBounds( Vector &mins, Vector &maxs );
 	float StartupTime() const { return m_flStartupTime; }
 
 private:
 	C_BaseHelicopter( const C_BaseHelicopter &other ) {}
 	float m_flStartupTime;
+	struct SpeedPoint { Vector pos[2]; float time; float strength; };
+	CUtlVector<SpeedPoint> m_SpeedPoints;
+	Vector m_LastSpeedOrigin;
+	float m_LastSpeedTime, m_SmoothedSpeed, m_LastSpeedLog;
+	int m_LastSpeedFrame;
+	void UpdateSpeedTrail();
+	void DrawSpeedTrail();
 };
 
 

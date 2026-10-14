@@ -364,6 +364,16 @@ public:
 
 	CNPC_AttackHelicopter();
 	~CNPC_AttackHelicopter();
+	virtual void HelicopterThink( void );
+	void InputStartCinematic( inputdata_t &inputdata );
+	void InputResumeFlight( inputdata_t &inputdata );
+	bool m_bCinematic;
+	int m_nCinematicMoveType;
+	EHANDLE m_hCinematicNode;
+	float m_flCinematicStart;
+	Vector m_vecCinematicStart, m_vecCinematicVelocity;
+	QAngle m_angCinematicStart;
+	COutputEvent m_OnCinematicLanded, m_OnCinematicAborted;
 
 	virtual void	Precache( void );
 	virtual void	Spawn( void );
@@ -777,6 +787,17 @@ static const char *pFollowerBoneNames[] =
 LINK_ENTITY_TO_CLASS( npc_helicopter, CNPC_AttackHelicopter );
 
 BEGIN_DATADESC( CNPC_AttackHelicopter )
+	DEFINE_FIELD( m_bCinematic, FIELD_BOOLEAN ),
+	DEFINE_FIELD( m_nCinematicMoveType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_hCinematicNode, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flCinematicStart, FIELD_TIME ),
+	DEFINE_FIELD( m_vecCinematicStart, FIELD_VECTOR ),
+	DEFINE_FIELD( m_vecCinematicVelocity, FIELD_VECTOR ),
+	DEFINE_FIELD( m_angCinematicStart, FIELD_VECTOR ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "StartCinematic", InputStartCinematic ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ResumeFlight", InputResumeFlight ),
+	DEFINE_OUTPUT( m_OnCinematicLanded, "OnCinematicLanded" ),
+	DEFINE_OUTPUT( m_OnCinematicAborted, "OnCinematicAborted" ),
 
 	DEFINE_ENTITYFUNC( FlyTouch ),
 
@@ -893,7 +914,10 @@ CNPC_AttackHelicopter::CNPC_AttackHelicopter() :
 	m_bBombsExplodeOnContact( false )
 {
 	m_flMaxSpeed = 0;
+	m_bCinematic = false;
 }
+
+#include "bs2_heli_cinematic.inc"
 
 CNPC_AttackHelicopter::~CNPC_AttackHelicopter(void)
 {
