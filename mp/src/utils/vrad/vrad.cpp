@@ -1083,7 +1083,11 @@ float FormFactorPolyToDiff ( CPatch *pPolygon, CPatch* pDifferential )
 		float flSinAlpha = VectorNormalize( vGammaVector );
 		if (flSinAlpha < -1.0f || flSinAlpha > 1.0f)
 			return 0.0f;
-		vGammaVector *= asin( flSinAlpha );
+		// asin(sin(alpha)) folds angles above 90 degrees back into the acute
+		// range, underestimating nearby polygon contributions. Retain the
+		// cosine so the edge angle covers the full [0, pi] range.
+		float flCosAlpha = DotProduct( vVector1, vVector2 );
+		vGammaVector *= atan2( flSinAlpha, flCosAlpha );
 
 		flFormFactor += DotProduct( vGammaVector, pDifferential->normal );
 	}
