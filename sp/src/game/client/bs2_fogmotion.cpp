@@ -41,8 +41,8 @@ static ConVar bs2_fogmotion_vehicle( "bs2_fogmotion_vehicle", "1", BS2FM_FLAGS, 
 static ConVar bs2_fogmotion_foot( "bs2_fogmotion_foot", "0.35", BS2FM_FLAGS, "Strength on foot", true, 0, true, 2 );
 static ConVar bs2_fogmotion_brake( "bs2_fogmotion_brake", "1", BS2FM_FLAGS, "Stop / handbrake swirl strength", true, 0, true, 3 );
 static ConVar bs2_fogmotion_turn( "bs2_fogmotion_turn", "1", BS2FM_FLAGS, "Turn shear strength", true, 0, true, 3 );
-static ConVar bs2_fogmotion_color( "bs2_fogmotion_color", "100 112 132", BS2FM_FLAGS, "Wisp colour R G B (bs2_fog BLUE1/BLUE2 midpoint)" );
-static ConVar bs2_fogmotion_alpha( "bs2_fogmotion_alpha", "30", BS2FM_FLAGS, "Peak wisp alpha 0-255", true, 0, true, 255 );
+static ConVar bs2_fogmotion_color( "bs2_fogmotion_color", "150 160 178", BS2FM_FLAGS, "Wisp colour R G B (a little brighter than the fog colour so it reads against it)" );
+static ConVar bs2_fogmotion_alpha( "bs2_fogmotion_alpha", "110", BS2FM_FLAGS, "Peak wisp alpha 0-255 (the wisp texture is soft, so this is much fainter on screen)", true, 0, true, 255 );
 static ConVar bs2_fogmotion_max( "bs2_fogmotion_max", "220", BS2FM_FLAGS, "Particle budget", true, 0, true, 600 );
 // Thresholds, exposed so they can be tuned live with bs2_fogmotion_debug 1.
 static ConVar bs2_fogmotion_stop_vehicle( "bs2_fogmotion_stop_vehicle", "420", BS2FM_FLAGS, "Buggy deceleration (u/s^2) that counts as a hard stop / handbrake" );
@@ -119,7 +119,8 @@ struct BS2FogMotionState
 	Vector	dir;			// direction of travel (or view forward when slow)
 	Vector	right;
 	float	speed;
-	float	strength;		// intensity * mode strength
+	float	strength;		// intensity * mode strength (drives how many wisps)
+	float	intensity;		// zone intensity alone (drives how dense each wisp is)
 	const BS2FogMotionTuning *tune;
 	bool	active;
 };
@@ -370,6 +371,7 @@ public:
 		s.speed = speed;
 		s.tune = &tune;
 		s.strength = m_flIntensity * modeStrength;
+		s.intensity = m_flIntensity;
 		if ( speed > 30.0f )
 			s.dir = m_vecVel / speed;
 		else
@@ -536,7 +538,7 @@ private:
 		p->m_flSize0 = size;
 		p->m_flSize1 = size * random->RandomFloat( 1.35f, 1.7f );
 		p->m_flDieTime = random->RandomFloat( t.lifeMin, t.lifeMax ) * lifeScale;
-		p->m_flAlpha = clamp( bs2_fogmotion_alpha.GetFloat() / 255.0f * alphaScale * MIN( s.strength, 1.5f ), 0.0f, 1.0f );
+		p->m_flAlpha = clamp( bs2_fogmotion_alpha.GetFloat() / 255.0f * alphaScale * MIN( s.intensity, 1.5f ), 0.0f, 1.0f );
 		p->m_flNearMin = t.nearMin;
 		p->m_flNearMax = t.nearMax;
 		p->m_uchFrame = (unsigned char)random->RandomInt( frameMin, frameMax );
