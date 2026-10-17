@@ -35,14 +35,14 @@
 
 // Not archived: a map opts in explicitly (same convention as bs2_tiltshift).
 static ConVar bs2_fogmotion_enable( "bs2_fogmotion_enable", "0", BS2FM_FLAGS, "Motion-reactive fog around the camera", true, 0, true, 1 );
-static ConVar bs2_fogmotion_intensity( "bs2_fogmotion_intensity", "1", BS2FM_FLAGS, "Fog density at the camera; 0 = clear air. Set by fog-zone triggers", true, 0, true, 2 );
+static ConVar bs2_fogmotion_intensity( "bs2_fogmotion_intensity", "1.5", BS2FM_FLAGS, "Fog density at the camera; 0 = clear air. Set by fog-zone triggers", true, 0, true, 2 );
 static ConVar bs2_fogmotion_fade( "bs2_fogmotion_fade", "1.5", BS2FM_FLAGS, "Seconds to blend to a new intensity", true, 0.05f, true, 10 );
 static ConVar bs2_fogmotion_vehicle( "bs2_fogmotion_vehicle", "1", BS2FM_FLAGS, "Strength while driving", true, 0, true, 2 );
 static ConVar bs2_fogmotion_foot( "bs2_fogmotion_foot", "0.35", BS2FM_FLAGS, "Strength on foot", true, 0, true, 2 );
 static ConVar bs2_fogmotion_brake( "bs2_fogmotion_brake", "1", BS2FM_FLAGS, "Stop / handbrake swirl strength", true, 0, true, 3 );
 static ConVar bs2_fogmotion_turn( "bs2_fogmotion_turn", "1", BS2FM_FLAGS, "Turn shear strength", true, 0, true, 3 );
 static ConVar bs2_fogmotion_color( "bs2_fogmotion_color", "150 160 178", BS2FM_FLAGS, "Wisp colour R G B (a little brighter than the fog colour so it reads against it)" );
-static ConVar bs2_fogmotion_alpha( "bs2_fogmotion_alpha", "110", BS2FM_FLAGS, "Peak wisp alpha 0-255 (the wisp texture is soft, so this is much fainter on screen)", true, 0, true, 255 );
+static ConVar bs2_fogmotion_alpha( "bs2_fogmotion_alpha", "15", BS2FM_FLAGS, "Peak wisp alpha 0-255 (the wisp texture is soft, so this is much fainter on screen)", true, 0, true, 255 );
 static ConVar bs2_fogmotion_max( "bs2_fogmotion_max", "220", BS2FM_FLAGS, "Particle budget", true, 0, true, 600 );
 // Thresholds, exposed so they can be tuned live with bs2_fogmotion_debug 1.
 static ConVar bs2_fogmotion_stop_vehicle( "bs2_fogmotion_stop_vehicle", "420", BS2FM_FLAGS, "Buggy deceleration (u/s^2) that counts as a hard stop / handbrake" );
