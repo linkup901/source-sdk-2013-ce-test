@@ -363,3 +363,5 @@ void TE_Dust( IRecipientFilter& filter, float delay,
 {
 	FX_Dust( pos, dir, size, speed );
 }
+
+#include "bs2_rotorwash_particles.inc"
