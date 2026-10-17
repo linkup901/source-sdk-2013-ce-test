@@ -89,25 +89,48 @@ enum BS2FogWispKind { WISP_WAKE = 0, WISP_BURST, WISP_SHEAR };
 
 //-----------------------------------------------------------------------------
 // The particle. Sizes are floats (SimpleParticle's bytes cap at 255).
+//
+// IMPORTANT: CParticleEffectBinding::AddParticle silently returns NULL for any
+// particle struct larger than PARTICLE_SIZE (96 bytes, particlemgr.cpp); the
+// Assert only fires in debug builds. The first version was 124 bytes, so every
+// wisp was rejected and nothing ever drew. Keep this packed and <= 96.
 //-----------------------------------------------------------------------------
+#define BS2FM_PARTICLE_SIZE_LIMIT 96	// must match PARTICLE_SIZE in particlemgr.cpp
+
 struct BS2FogWisp : public Particle
 {
 	Vector	m_vecVelocity;
 	Vector	m_vecSwirlCenter;
 	Vector	m_vecSwirlCenterVel;
-	Vector	m_vecSwirlAxis;
 	float	m_flSwirl;			// tangential eddy speed, decays
-	float	m_flDrag;			// 1/s
 	float	m_flLifetime;
 	float	m_flDieTime;
 	float	m_flSize0, m_flSize1;
-	float	m_flAlpha;			// 0-1 peak
-	float	m_flRoll, m_flRollDelta;
-	float	m_flNearMin, m_flNearMax;
-	float	m_flFadeIn;
+	unsigned char m_uchAlpha;		// peak alpha 0-255
+	unsigned char m_uchDrag;		// drag in 1/100 s^-1
+	signed char   m_chRollDelta;	// deg/s
+	unsigned char m_uchRoll0;		// start roll, 256 = 360 deg
+	unsigned char m_uchNearMin, m_uchNearMax;	// fade sprites this close to the eye (units)
+	unsigned char m_uchFadeIn;		// fade-in time in 1/100 s
 	unsigned char m_uchColor[3];
-	unsigned char m_uchFrame;	// 0-15 on the 4x4 wisp sheet
+	unsigned char m_uchFrame;		// 0-15 on the 4x4 wisp sheet
+	signed char   m_chSwirlAxis[3];	// unit swirl axis * 127
+
+	void SetSwirlAxis( const Vector &a )
+	{
+		for ( int i = 0; i < 3; ++i )
+			m_chSwirlAxis[i] = (signed char)clamp( (int)( a[i] * 127.0f ), -127, 127 );
+	}
+	Vector SwirlAxis() const { return Vector( m_chSwirlAxis[0], m_chSwirlAxis[1], m_chSwirlAxis[2] ) * ( 1.0f / 127.0f ); }
+	void SetDrag( float d )		{ m_uchDrag = (unsigned char)clamp( (int)( d * 100.0f + 0.5f ), 0, 255 ); }
+	float Drag() const			{ return m_uchDrag * 0.01f; }
+	void SetFadeIn( float f )	{ m_uchFadeIn = (unsigned char)clamp( (int)( f * 100.0f + 0.5f ), 1, 255 ); }
+	float FadeIn() const		{ return m_uchFadeIn * 0.01f; }
+	void SetAlpha( float a )	{ m_uchAlpha = (unsigned char)clamp( (int)( a * 255.0f + 0.5f ), 0, 255 ); }
+	float Alpha() const			{ return m_uchAlpha * ( 1.0f / 255.0f ); }
+	float Roll() const			{ return m_uchRoll0 * ( 360.0f / 256.0f ) + m_chRollDelta * m_flLifetime; }
 };
+COMPILE_TIME_ASSERT( sizeof( BS2FogWisp ) <= BS2FM_PARTICLE_SIZE_LIMIT );
 
 //-----------------------------------------------------------------------------
 // What the camera's body is doing this frame (shared with the emitter).
@@ -161,18 +184,18 @@ public:
 		p->m_vecVelocity.Init();
 		p->m_vecSwirlCenter = pos;
 		p->m_vecSwirlCenterVel.Init();
-		p->m_vecSwirlAxis.Init( 0, 0, 1 );
+		p->SetSwirlAxis( Vector( 0, 0, 1 ) );
 		p->m_flSwirl = 0;
-		p->m_flDrag = 1.0f;
+		p->SetDrag( 1.0f );
 		p->m_flLifetime = 0;
 		p->m_flDieTime = 3.0f;
 		p->m_flSize0 = p->m_flSize1 = 64;
-		p->m_flAlpha = 0.1f;
-		p->m_flRoll = random->RandomFloat( 0, 360 );
-		p->m_flRollDelta = random->RandomFloat( -6.0f, 6.0f );
-		p->m_flNearMin = 16;
-		p->m_flNearMax = 64;
-		p->m_flFadeIn = 0.45f;
+		p->SetAlpha( 0.1f );
+		p->m_uchRoll0 = (unsigned char)random->RandomInt( 0, 255 );
+		p->m_chRollDelta = (signed char)random->RandomInt( -6, 6 );
+		p->m_uchNearMin = 16;
+		p->m_uchNearMax = 64;
+		p->SetFadeIn( 0.45f );
 		p->m_uchColor[0] = p->m_uchColor[1] = p->m_uchColor[2] = 110;
 		p->m_uchFrame = 0;
 		return p;
@@ -209,7 +232,7 @@ public:
 
 			// Still air: momentum bleeds away. Vertical motion settles faster so
 			// fog stays low instead of floating up like smoke.
-			const float drag = expf( -dt * p->m_flDrag );
+			const float drag = expf( -dt * p->Drag() );
 			p->m_vecVelocity *= drag;
 			p->m_vecVelocity.z *= expf( -dt * 0.6f );
 			p->m_Pos += p->m_vecVelocity * dt;
@@ -220,14 +243,13 @@ public:
 				p->m_vecSwirlCenterVel *= drag;
 				p->m_vecSwirlCenter += p->m_vecSwirlCenterVel * dt;
 				Vector r = p->m_Pos - p->m_vecSwirlCenter;
-				Vector tangent = CrossProduct( p->m_vecSwirlAxis, r );
+				Vector tangent = CrossProduct( p->SwirlAxis(), r );
 				const float len = tangent.Length();
 				if ( len > 1.0f )
 					p->m_Pos += tangent * ( p->m_flSwirl * dt / len );
 				p->m_flSwirl *= expf( -dt * 0.8f );
 			}
 
-			p->m_flRoll += p->m_flRollDelta * dt;
 			p->m_flLifetime += dt;
 			if ( p->m_flLifetime >= p->m_flDieTime )
 				it->RemoveParticle( p );
@@ -245,10 +267,10 @@ public:
 			TransformParticle( ParticleMgr()->GetModelView(), p->m_Pos, tPos );
 
 			const float age = clamp( p->m_flLifetime / p->m_flDieTime, 0.0f, 1.0f );
-			const float fadeIn = clamp( p->m_flLifetime / p->m_flFadeIn, 0.0f, 1.0f );
+			const float fadeIn = clamp( p->m_flLifetime / p->FadeIn(), 0.0f, 1.0f );
 			const float fadeOut = 1.0f - age * age;
-			const float alpha = p->m_flAlpha * fadeIn * fadeOut *
-				GetAlphaDistanceFade( tPos, p->m_flNearMin, p->m_flNearMax );
+			const float alpha = p->Alpha() * fadeIn * fadeOut *
+				GetAlphaDistanceFade( tPos, p->m_uchNearMin, p->m_uchNearMax );
 
 			if ( alpha > 0.002f )
 			{
@@ -257,7 +279,7 @@ public:
 				draw->m_pSubTexture = &m_Frames[p->m_uchFrame & 15];
 				const Vector color( p->m_uchColor[0] / 255.0f, p->m_uchColor[1] / 255.0f, p->m_uchColor[2] / 255.0f );
 				RenderParticle_ColorSizeAngle( draw, tPos, color, alpha,
-					p->m_flSize0 + ( p->m_flSize1 - p->m_flSize0 ) * age, DEG2RAD( p->m_flRoll ) );
+					p->m_flSize0 + ( p->m_flSize1 - p->m_flSize0 ) * age, DEG2RAD( p->Roll() ) );
 				draw->m_pSubTexture = original;
 			}
 			p = (const BS2FogWisp *)it->GetNext( tPos.z );
@@ -480,7 +502,7 @@ public:
 		{
 			engine->Con_NPrintf( 0, "fogmotion %s  intensity %.2f  strength %.2f", inVehicle ? "VEHICLE" : "FOOT", m_flIntensity, s.strength );
 			engine->Con_NPrintf( 1, "speed %4.0f  decel %5.0f (stop at %.0f)  yaw %5.0f deg/s (turn at %.0f)", speed, m_flDecel, tune.stopDecel, m_flYawRate, tune.turnRate );
-			engine->Con_NPrintf( 2, "wisps %d / %d  %s", Live(), budget, m_bStopping ? "STOP SWIRL" : ( turnExcess > 0 ? "TURN SHEAR" : "" ) );
+			engine->Con_NPrintf( 2, "wisps %d / %d  rejected %d  %s", Live(), budget, m_nRejected, m_bStopping ? "STOP SWIRL" : ( turnExcess > 0 ? "TURN SHEAR" : "" ) );
 		}
 	}
 
@@ -534,13 +556,16 @@ private:
 			return NULL;
 		BS2FogWisp *p = m_pEmitter->AddWisp( pos );
 		if ( !p )
+		{
+			++m_nRejected;		// engine refused the particle (size limit / global particle cap)
 			return NULL;
+		}
 		p->m_flSize0 = size;
 		p->m_flSize1 = size * random->RandomFloat( 1.35f, 1.7f );
 		p->m_flDieTime = random->RandomFloat( t.lifeMin, t.lifeMax ) * lifeScale;
-		p->m_flAlpha = clamp( bs2_fogmotion_alpha.GetFloat() / 255.0f * alphaScale * MIN( s.intensity, 1.5f ), 0.0f, 1.0f );
-		p->m_flNearMin = t.nearMin;
-		p->m_flNearMax = t.nearMax;
+		p->SetAlpha( clamp( bs2_fogmotion_alpha.GetFloat() / 255.0f * alphaScale * MIN( s.intensity, 1.5f ), 0.0f, 1.0f ) );
+		p->m_uchNearMin = (unsigned char)clamp( t.nearMin, 0.0f, 254.0f );
+		p->m_uchNearMax = (unsigned char)clamp( t.nearMax, t.nearMin + 1.0f, 255.0f );
 		p->m_uchFrame = (unsigned char)random->RandomInt( frameMin, frameMax );
 		const float tint = random->RandomFloat( 0.88f, 1.1f );
 		p->m_uchColor[0] = (unsigned char)clamp( m_vecColor.x * tint, 0.0f, 255.0f );
@@ -560,7 +585,7 @@ private:
 		if ( !p )
 			return;
 		p->m_vecVelocity.Init( random->RandomFloat( -6, 6 ), random->RandomFloat( -6, 6 ), random->RandomFloat( -1, 1 ) );
-		p->m_flDrag = random->RandomFloat( 0.8f, 1.4f );
+		p->SetDrag( random->RandomFloat( 0.8f, 1.4f ) );
 	}
 
 	// Air that was travelling with you: starts behind/around the camera with
@@ -583,15 +608,15 @@ private:
 			return;
 		p->m_vecVelocity = oldVel * random->RandomFloat( 0.55f, 1.0f ) +
 			Vector( random->RandomFloat( -25, 25 ), random->RandomFloat( -25, 25 ), random->RandomFloat( -8, 15 ) );
-		p->m_flDrag = random->RandomFloat( 1.0f, 1.7f );
-		p->m_flFadeIn = 0.25f;
+		p->SetDrag( random->RandomFloat( 1.0f, 1.7f ) );
+		p->SetFadeIn( 0.25f );
 
 		// 60% roll forward over the bonnet (axis = right), the rest swirl about
 		// the vertical, following the turn if there is one.
 		if ( random->RandomInt( 0, 9 ) < 6 )
-			p->m_vecSwirlAxis = right;
+			p->SetSwirlAxis( right );
 		else
-			p->m_vecSwirlAxis.Init( 0, 0, ( m_flYawRate >= 0 ? 1.0f : -1.0f ) * ( fabsf( m_flYawRate ) > 20 ? 1.0f : ( random->RandomInt( 0, 1 ) ? 1.0f : -1.0f ) ) );
+			p->SetSwirlAxis( Vector( 0, 0, ( m_flYawRate >= 0 ? 1.0f : -1.0f ) * ( fabsf( m_flYawRate ) > 20 ? 1.0f : ( random->RandomInt( 0, 1 ) ? 1.0f : -1.0f ) ) ) );
 		p->m_vecSwirlCenter = s.eye + dir * random->RandomFloat( 80.0f, t.pushRadius ) + Vector( 0, 0, random->RandomFloat( -10, 40 ) );
 		p->m_vecSwirlCenterVel = oldVel * 0.35f;
 		p->m_flSwirl = random->RandomFloat( 70, 170 ) * clamp( strength, 0.3f, 2.0f ) * t.swirlScale;
@@ -610,8 +635,8 @@ private:
 		if ( !p )
 			return;
 		p->m_vecVelocity = s.vel * random->RandomFloat( 0.5f, 0.9f ) + outside * random->RandomFloat( 20, 60 );
-		p->m_flDrag = random->RandomFloat( 0.9f, 1.5f );
-		p->m_vecSwirlAxis.Init( 0, 0, yawRate > 0 ? 1.0f : -1.0f );
+		p->SetDrag( random->RandomFloat( 0.9f, 1.5f ) );
+		p->SetSwirlAxis( Vector( 0, 0, yawRate > 0 ? 1.0f : -1.0f ) );
 		p->m_vecSwirlCenter = s.eye + outside * 60.0f;
 		p->m_vecSwirlCenterVel = s.vel * 0.3f;
 		p->m_flSwirl = random->RandomFloat( 50, 110 ) * t.swirlScale;
@@ -624,6 +649,7 @@ private:
 	float	m_flWakeAccum, m_flBurstAccum, m_flShearAccum;
 	float	m_flStopEntrySpeed, m_flSettle, m_flIntensity;
 	bool	m_bValid, m_bInVehicle, m_bStopping, m_bTurnLogged;
+	int		m_nRejected = 0;
 };
 
 static CBS2FogMotionSystem s_BS2FogMotion;
