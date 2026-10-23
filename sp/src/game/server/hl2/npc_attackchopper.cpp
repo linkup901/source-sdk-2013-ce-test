@@ -368,6 +368,7 @@ public:
 	virtual void HelicopterThink( void );
 	void InputStartCinematic( inputdata_t &inputdata );
 	void InputResumeFlight( inputdata_t &inputdata );
+	void ClearCinematicGunLayers();
 	bool m_bCinematic;
 	bool m_bCinematicAssets;
 	string_t m_iszCinematicModel;

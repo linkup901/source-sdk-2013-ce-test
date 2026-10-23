@@ -111,7 +111,11 @@ void C_BaseHelicopter::GetRenderBounds(Vector &mins, Vector &maxs)
 	BaseClass::GetRenderBounds(mins, maxs);
 	// Keep history visible when the helicopter itself approaches the screen edge.
 	const char *name=GetModel() ? modelinfo->GetModelName(GetModel()) : NULL;
-	if (bs2_heli_trails.GetBool() && name && Q_stristr(name,"helicopter"))
+	// Ribbon visibility padding is not part of the aircraft's shadow caster.
+	// Including it here during shadow queries projects an oversized footprint
+	// onto terrain and can exhaust the engine's 16-bit displacement shadow cache.
+	if (!(m_EntClientFlags & ENTCLIENTFLAG_GETTINGSHADOWRENDERBOUNDS) &&
+		bs2_heli_trails.GetBool() && name && Q_stristr(name,"helicopter"))
 	{ mins -= Vector(1600,1600,1600); maxs += Vector(1600,1600,1600); }
 }
 

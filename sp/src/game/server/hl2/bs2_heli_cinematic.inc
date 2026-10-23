@@ -7,6 +7,9 @@ public:
 	DECLARE_DATADESC();
 	float m_flDuration, m_flPitch, m_flYaw, m_flRoll, m_flHoverAmplitude;
 	Vector m_vecVelocity;
+	bool m_bSmoothAngles;
+	bool m_bIgnoreObstructions;
+	Vector m_vecAngularStart, m_vecAngularEnd;
 	string_t m_iszNext;
 	COutputEvent m_OnReached;
 };
@@ -18,12 +21,40 @@ BEGIN_DATADESC( CBS2HeliNode )
 	DEFINE_KEYFIELD( m_flYaw, FIELD_FLOAT, "yaw" ),
 	DEFINE_KEYFIELD( m_flRoll, FIELD_FLOAT, "roll" ),
 	DEFINE_KEYFIELD( m_vecVelocity, FIELD_VECTOR, "velocity" ),
+	DEFINE_KEYFIELD( m_bSmoothAngles, FIELD_BOOLEAN, "smoothangles" ),
+	DEFINE_KEYFIELD( m_bIgnoreObstructions, FIELD_BOOLEAN, "ignoreobstructions" ),
+	DEFINE_KEYFIELD( m_vecAngularStart, FIELD_VECTOR, "angularstart" ),
+	DEFINE_KEYFIELD( m_vecAngularEnd, FIELD_VECTOR, "angularend" ),
 	DEFINE_KEYFIELD( m_iszNext, FIELD_STRING, "nextnode" ),
 	DEFINE_OUTPUT( m_OnReached, "OnReached" ),
 END_DATADESC()
 
+// Clear by sequence as well as handle: the scan may still be fading after
+// the stage transition has relinquished its handle. Leave unrelated layers alone.
+void CNPC_AttackHelicopter::ClearCinematicGunLayers()
+{
+	int removed = 0;
+	for (int layer = 0; layer < GetNumAnimOverlays(); ++layer)
+	{
+		if (!IsValidLayer(layer)) continue;
+		const char *sequence = GetSequenceName(GetLayerSequence(layer));
+		if (sequence && (!Q_stricmp(sequence, "bs2_gun_stowed") ||
+			!Q_stricmp(sequence, "bs2_gun_deploy") || !Q_stricmp(sequence, "bs2_gun_scan")))
+		{
+			FastRemoveLayer(layer);
+			++removed;
+		}
+	}
+	m_iCinematicGunLayer = -1;
+	m_nCinematicGunStage = 0;
+	m_flCinematicGunStart = 0;
+	DevMsg("CINEMATIC_TURRET_CLEAR removed=%d time=%.3f\n", removed, gpGlobals->curtime);
+}
+
 void CNPC_AttackHelicopter::InputDeployCinematicGun(inputdata_t &data)
 {
+	if (!IsAlive()) return;
+	ClearCinematicGunLayers();
 	int deploy=LookupSequence("bs2_gun_deploy");
 	if(deploy<0)
 	{
@@ -68,10 +99,12 @@ void CNPC_AttackHelicopter::InputStartCinematic( inputdata_t &data )
 	CBS2HeliNode *node = dynamic_cast<CBS2HeliNode *>(gEntList.FindEntityByName(NULL, data.value.String()));
 	if ( !node || node->m_flDuration < 0.05f )
 	{
+		ClearCinematicGunLayers();
 		Warning("npc_helicopter: invalid cinematic start node\n");
 		m_OnCinematicAborted.FireOutput(data.pActivator, this);
 		return;
 	}
+	if (!m_bCinematic) ClearCinematicGunLayers();
 	if(!m_bCinematic && m_iszCinematicModel != NULL_STRING && m_nCinematicGunStage==0)
 	{
 		int stowed=LookupSequence("bs2_gun_stowed");
@@ -93,6 +126,7 @@ void CNPC_AttackHelicopter::InputStartCinematic( inputdata_t &data )
 
 void CNPC_AttackHelicopter::InputResumeFlight( inputdata_t &data )
 {
+	ClearCinematicGunLayers();
 	if ( !m_bCinematic ) return;
 	m_bCinematic = false;
 	m_hCinematicNode = NULL;
@@ -146,17 +180,29 @@ void CNPC_AttackHelicopter::HelicopterThink( void )
 		trace_t tr;
 		UTIL_TraceHull(GetAbsOrigin(), pos, Vector(-48,-48,-32), Vector(48,48,32),
 			MASK_NPCSOLID, this, COLLISION_GROUP_NPC, &tr);
-		if ( tr.startsolid || tr.fraction < 1.0f )
+		if ( !node->m_bIgnoreObstructions && (tr.startsolid || tr.fraction < 1.0f) )
 		{
 			DevMsg("BS2 cinematic obstruction node=%s position=%.1f %.1f %.1f hit=%s\n",node->GetEntityName().ToCStr(),tr.endpos.x,tr.endpos.y,tr.endpos.z,tr.m_pEnt ? tr.m_pEnt->GetClassname() : "world");
 			m_hCinematicNode = NULL;
+			ClearCinematicGunLayers();
 			m_OnCinematicAborted.FireOutput(this, this);
 			return;
 		}
 		SetAbsOrigin(pos);
 		const float ease = t2*(3-2*t);
 		const QAngle end(node->m_flPitch, node->m_flYaw, node->m_flRoll);
-		SetAbsAngles(m_angCinematicStart + (end-m_angCinematicStart)*ease + QAngle(0,0,node->m_flHoverAmplitude*0.06f*sin(hoverPhase)*hoverEnvelope));
+		QAngle rotation = m_angCinematicStart + (end-m_angCinematicStart)*ease;
+		if ( node->m_bSmoothAngles )
+		{
+			// Authored degrees/second preserve rotational momentum across nodes,
+			// including unwrapped full loops and rolls. Legacy nodes keep easing.
+			for ( int axis=0; axis<3; ++axis )
+				rotation[axis] = (2*t3-3*t2+1)*m_angCinematicStart[axis]
+					+ (t3-2*t2+t)*duration*node->m_vecAngularStart[axis]
+					+ (-2*t3+3*t2)*end[axis]
+					+ (t3-t2)*duration*node->m_vecAngularEnd[axis];
+		}
+		SetAbsAngles(rotation + QAngle(0,0,node->m_flHoverAmplitude*0.06f*sin(hoverPhase)*hoverEnvelope));
 		if ( t >= 1.0f )
 		{
 			m_vecCinematicStart = node->GetAbsOrigin();
@@ -168,6 +214,7 @@ void CNPC_AttackHelicopter::HelicopterThink( void )
 			if ( node->m_iszNext != NULL_STRING && (!next || next->m_flDuration < 0.05f) )
 			{
 				m_hCinematicNode = NULL;
+				ClearCinematicGunLayers();
 				m_OnCinematicAborted.FireOutput(this, this);
 			}
 			else if ( !next ) m_OnCinematicLanded.FireOutput(this, this);
@@ -206,6 +253,7 @@ public:
 	string_t m_iszLookEntity, m_iszLookAttachment;
 	EHANDLE m_hOldView;
 	bool m_bWasFrozen;
+	int m_nInitialFov;
 	bool m_bStartFromPlayer;
 	float m_flPlayerViewStart;
 	QAngle m_angPlayerViewStart;
@@ -347,6 +395,7 @@ public:
 		m_bWasFrozen = (player->GetFlags() & FL_FROZEN) != 0;
 		player->AddFlag(FL_FROZEN);
 		player->SetViewEntity(this);
+		if(m_nInitialFov>0) player->SetFOV(this,clamp(m_nInitialFov,20,110),0);
 		if(m_iszLookEntity != NULL_STRING) { SetThink(&CBS2HeliCamera::ShakeThink); SetNextThink(gpGlobals->curtime); }
 		DevMsg("BS2 helicopter camera player=%d origin=%.1f %.1f %.1f\n", player->entindex(), GetAbsOrigin().x, GetAbsOrigin().y, GetAbsOrigin().z);
 	}
@@ -369,11 +418,24 @@ public:
 		m_hPlayer->SetFOV(this,0,0);
 		m_hPlayer = NULL;
 	}
+	void InputSwitchTo(inputdata_t &data)
+	{
+		CBS2HeliCamera *next=dynamic_cast<CBS2HeliCamera*>(gEntList.FindEntityByName(NULL,data.value.String()));
+		if(!next || next==this || !m_hPlayer) return;
+		CBasePlayer *player=m_hPlayer.Get();
+		// Release the old ownership before the new camera captures view/freeze state.
+		// Both operations occur in one input, independent of map output list order.
+		RestoreView(); inputdata_t handoff=data; handoff.pActivator=player;
+		next->InputEnable(handoff);
+		DevMsg("BS2_CAMERA_HANDOFF from=%s to=%s\n",GetEntityName().ToCStr(),next->GetEntityName().ToCStr());
+	}
 	void InputDisable(inputdata_t &data) { RestoreView(); }
 	virtual void UpdateOnRemove() { RestoreView(); BaseClass::UpdateOnRemove(); }
 };
 LINK_ENTITY_TO_CLASS( bs2_heli_camera, CBS2HeliCamera );
 BEGIN_DATADESC( CBS2HeliCamera )
+	DEFINE_KEYFIELD(m_nInitialFov,FIELD_INTEGER,"initialfov"),
+	DEFINE_INPUTFUNC(FIELD_STRING,"SwitchTo",InputSwitchTo),
 	DEFINE_KEYFIELD(m_bStartFromPlayer,FIELD_BOOLEAN,"startfromplayer"),
 	DEFINE_FIELD(m_flPlayerViewStart,FIELD_TIME),
 	DEFINE_FIELD(m_angPlayerViewStart,FIELD_VECTOR),

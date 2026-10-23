@@ -7,11 +7,17 @@
  pitch(float) : "Unwrapped pitch (negative is nose up)" : 0
  yaw(float) : "Unwrapped world yaw" : 0
  roll(float) : "Unwrapped roll" : 0
+ smoothangles(boolean) : "Use continuous authored angular tangents" : 0
+ ignoreobstructions(boolean) : "Visual clearance test only: continue through obstructions" : 0
+ angularstart(vector) : "Starting pitch yaw roll velocity (degrees/second)" : "0 0 0"
+ angularend(vector) : "Ending pitch yaw roll velocity (degrees/second)" : "0 0 0"
  output OnReached(void) : "Helicopter reaches this keyframe"
 ]
 @PointClass base(Targetname, Parentname, Angles) = bs2_heli_camera : "Rigid aircraft camera"
 [
  startfromplayer(boolean) : "Start at the current seated player view; use Zoom without MoveTo for an optical zoom" : 0
+ initialfov(integer) : "Immediate FOV on Enable (0 leaves current FOV)" : 0
+ input SwitchTo(string) : "Atomically hand control to another bs2_heli_camera"
  lookentity(target_destination) : "Optional camera aim target"
  lookattachment(string) : "Aim attachment on target model" : "gun"
  shakeamplitude(float) : "Peak camera shake in degrees" : 3.5
