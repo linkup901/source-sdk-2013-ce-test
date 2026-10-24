@@ -804,6 +804,20 @@ CGib *CEnvShooter::CreateGib ( void )
 
 
 //-----------------------------------------------------------------------------
+// Scene-only debris emitter: stock env_shooter retains its existing behavior.
+class CBS2WashShooter : public CEnvShooter
+{
+public:
+	DECLARE_CLASS( CBS2WashShooter, CEnvShooter );
+	CGib *CreateGib( void ) OVERRIDE
+	{
+		CGib *gib = BaseClass::CreateGib();
+		if ( gib ) gib->SetModelScale( clamp(m_flGibScale, 0.05f, 1.0f) );
+		return gib;
+	}
+};
+LINK_ENTITY_TO_CLASS( bs2_wash_shooter, CBS2WashShooter );
+
 // An entity that shoots out junk when hit by a rotor wash
 //-----------------------------------------------------------------------------
 class CRotorWashShooter : public CEnvShooter, public IRotorWashShooter

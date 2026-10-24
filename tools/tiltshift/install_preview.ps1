@@ -8,12 +8,16 @@ $source = (Resolve-Path -LiteralPath "$PSScriptRoot\..\..\sp\game\mod_episodic")
 $ModDir = [IO.Path]::GetFullPath($ModDir)
 if (Test-Path -LiteralPath $ModDir) { throw 'Choose a NEW empty test-mod directory; this script does not overwrite an existing mod.' }
 if (!(Test-Path -LiteralPath "$SdkRoot\hl2.exe")) { throw 'SdkRoot must be Source SDK Base 2013 Singleplayer.' }
-foreach ($file in @('bin/client.dll','bin/server.dll','materials/effects/bs2_tiltshift.vmt','shaders/fxc/bs2_tiltshift_ps20b.vcs')) {
+& (Join-Path $PSScriptRoot '../bs2/verify-assets.ps1')
+foreach ($file in @('bin/game_shader_dx9.dll','bin/client.dll','bin/server.dll','materials/effects/bs2_tiltshift.vmt','shaders/fxc/bs2_tiltshift_ps20b.vcs')) {
     if (!(Test-Path -LiteralPath (Join-Path $source $file))) { throw "Build both client and shader first. Missing: $file" }
 }
 New-Item -ItemType Directory -Path $ModDir | Out-Null
-foreach ($folder in @('bin','materials','shaders','cfg')) {
+foreach ($folder in @('bin','materials','shaders','cfg','models','particles','resource','fgd')) {
     Copy-Item -LiteralPath (Join-Path $source $folder) -Destination $ModDir -Recurse
+}
+foreach ($file in @('bs2_phase2.fgd','bs_soft_fog.fgd','credits.txt')) {
+    Copy-Item -LiteralPath (Join-Path $source $file) -Destination $ModDir
 }
 $search = [Collections.Generic.List[string]]::new()
 $search.Add('        Game+Mod+Mod_Write+Default_Write_Path "|gameinfo_path|."')

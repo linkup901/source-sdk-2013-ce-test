@@ -18,6 +18,7 @@
 #include "fx_quad.h"
 #include "fx_line.h"
 #include "fx_water.h"
+#include "particle_util.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -25,6 +26,7 @@
 #define	__EXPLOSION_DEBUG	0
 
 CLIENTEFFECT_REGISTER_BEGIN( PrecacheEffectExplosion )
+CLIENTEFFECT_MATERIAL( "bs2/impact_dirt/earth_flipbook" )
 CLIENTEFFECT_MATERIAL( "effects/fire_cloud1" )
 CLIENTEFFECT_MATERIAL( "effects/fire_cloud2" )
 CLIENTEFFECT_MATERIAL( "effects/fire_embers1" )
@@ -1325,12 +1327,87 @@ C_MegaBombExplosionEffect &MegaBombExplosionEffect( void )
 //-----------------------------------------------------------------------------
 // Purpose: 
 //-----------------------------------------------------------------------------
+// Helicopter bomb visual scale; server damage, radius, and physics force are independent.
+// Staged helicopter blast layers; toggle preserves the previous visual for comparison.
+static ConVar bs2_heli_bomb_animated_dirt("bs2_heli_bomb_animated_dirt","1",FCVAR_ARCHIVE);
+static ConVar bs2_heli_bomb_realism("bs2_heli_bomb_realism","1",FCVAR_ARCHIVE);
+class CHeliBlastCloud : public CSimpleEmitter
+{
+public:
+	CHeliBlastCloud(const char *name,bool ground,bool impact):CSimpleEmitter(name),m_Ground(ground),m_Impact(impact){}
+	static CHeliBlastCloud *Create(const char *name,bool ground,bool impact=false){return new CHeliBlastCloud(name,ground,impact);}
+
+ virtual void RenderParticles(CParticleRenderIterator *it)
+ {
+  if(!m_Impact || !bs2_heli_bomb_animated_dirt.GetBool()) {CSimpleEmitter::RenderParticles(it);return;}
+  const SimpleParticle *p=(const SimpleParticle*)it->GetFirst();
+  while(p)
+  {
+   Vector v;TransformParticle(ParticleMgr()->GetModelView(),p->m_Pos,v);
+   ParticleDraw *draw=it->GetParticleDraw();CParticleSubTexture *original=draw->m_pSubTexture;
+   CParticleSubTexture frame;
+   // Each particle plays once, with gentle speed variation; never globally synchronized.
+   const float clock=clamp(p->m_flLifetime/(1.7f+.35f*sin(p->m_flRoll))*15.0f,0.0f,15.0f);
+   const int first=(int)clock;const float blend=clock-first;
+   const float alpha=UpdateAlpha(p)*GetAlphaDistanceFade(v,m_flNearClipMin,m_flNearClipMax);
+   for(int pass=0;pass<2;pass++)
+   {
+    const int f=MIN(15,first+pass);
+    frame.m_tCoordMins[0]=((f%4)*512+.5f)/2048.0f;frame.m_tCoordMins[1]=((f/4)*512+.5f)/2048.0f;
+    frame.m_tCoordMaxs[0]=((f%4+1)*512-.5f)/2048.0f;frame.m_tCoordMaxs[1]=((f/4+1)*512-.5f)/2048.0f;
+    draw->m_pSubTexture=&frame;
+    const float a0=alpha*(1-blend);
+    const float a=pass?(alpha*blend/MAX(.001f,1-a0)):a0;
+    RenderParticle_ColorSizeAngle(draw,v,UpdateColor(p),a,UpdateScale(p),p->m_flRoll);
+   }
+   draw->m_pSubTexture=original;
+   p=(const SimpleParticle*)it->GetNext(v.z);
+  }
+ }
+
+ virtual Vector UpdateColor(const SimpleParticle *p)
+ {
+  Vector color=CSimpleEmitter::UpdateColor(p);
+  if(m_Impact && bs2_heli_bomb_animated_dirt.GetBool())
+   color*=.42f+.58f*clamp(p->m_flLifetime/.85f,0.0f,1.0f);
+  return color;
+ }
+	virtual void UpdateVelocity(SimpleParticle *p,float dt)
+	{
+		if(p->m_flLifetime<0) return;
+		if(m_Impact)
+		{
+			// Ejecta are impulsive; the buoyant cooling smoke is a separate emitter.
+			const bool launch=p->m_flLifetime<.32f;
+			const float drag=expf(-dt*(launch?.4f:1.1f));
+			p->m_vecVelocity.x*=drag;p->m_vecVelocity.y*=drag;
+			if(launch && p->m_vecVelocity.z>90) p->m_vecVelocity.z-=650*dt;
+			else p->m_vecVelocity.z+=(8-p->m_vecVelocity.z)*MIN(1.0f,dt*4.0f);
+			return;
+		}
+
+		const float drag=expf(-dt*(m_Ground?1.2f:0.85f));
+		p->m_vecVelocity.x*=drag;p->m_vecVelocity.y*=drag;
+		p->m_vecVelocity.z+=(m_Ground?8.0f:30.0f-p->m_vecVelocity.z)*dt*(m_Ground?.05f:.7f);
+	}
+	virtual float UpdateAlpha(const SimpleParticle *p)
+	{
+		if(p->m_flLifetime<0) return 0;
+		const float rise=clamp(p->m_flLifetime/(m_Impact?.015f:.12f),0.0f,1.0f);
+		const float age=clamp(p->m_flLifetime/p->m_flDieTime,0.0f,1.0f);
+		return (p->m_uchStartAlpha/255.0f)*rise*powf(1-age,1.3f);
+	}
+private: bool m_Ground; bool m_Impact;
+};
+static ConVar bs2_heli_bomb_visual_scale("bs2_heli_bomb_visual_scale","4.1",FCVAR_ARCHIVE);
 void C_MegaBombExplosionEffect::CreateCore( void )
 {
 	if ( m_fFlags & TE_EXPLFLAG_NOFIREBALL )
 		return;
 
-	Vector	offset;
+	const float visualScale=clamp(bs2_heli_bomb_visual_scale.GetFloat(),1.0f,4.5f);
+	const float lifeScale=MIN(2.0f,1.0f+0.3f*(visualScale-1.0f));
+	Vector offset;
 	int		i;
 
 	//Spread constricts as force rises
@@ -1360,9 +1437,10 @@ void C_MegaBombExplosionEffect::CreateCore( void )
 	// Fireballs
 	//
 
-	for ( i = 0; i < 32; i++ )
+	for ( i = 0; i < (int)(32.0f*sqrtf(visualScale)); i++ )
 	{
 		offset.Random( -48.0f, 48.0f );
+		offset *= visualScale;
 		offset += m_vecOrigin;
 
 		pParticle = (SimpleParticle *) pSimple->AddParticle( sizeof( SimpleParticle ), m_Material_FireCloud, offset );
@@ -1370,7 +1448,7 @@ void C_MegaBombExplosionEffect::CreateCore( void )
 		if ( pParticle != NULL )
 		{
 			pParticle->m_flLifetime = 0.0f;
-			pParticle->m_flDieTime	= random->RandomFloat( 0.2f, 0.4f );
+			pParticle->m_flDieTime = bs2_heli_bomb_realism.GetBool() ? random->RandomFloat(.18f,.38f) : random->RandomFloat(.2f,.4f)*lifeScale;
 
 			pParticle->m_vecVelocity.Random( -spread*0.75f, spread*0.75f );
 			pParticle->m_vecVelocity += m_vecDirection;
@@ -1382,7 +1460,7 @@ void C_MegaBombExplosionEffect::CreateCore( void )
 			//Scale the force down as we fall away from our main direction
 			float	vDev = ScaleForceByDeviation( pParticle->m_vecVelocity, m_vecDirection, spread );
 
-			pParticle->m_vecVelocity *= fForce * ( 16.0f * (vDev*vDev*0.5f) );
+			pParticle->m_vecVelocity *= fForce * ( 16.0f * (vDev*vDev*0.5f) ) * visualScale;
 
 			#if __EXPLOSION_DEBUG
 			debugoverlay->AddLineOverlay( m_vecOrigin, m_vecOrigin + pParticle->m_vecVelocity, 255, 0, 0, false, 3 );
@@ -1391,11 +1469,11 @@ void C_MegaBombExplosionEffect::CreateCore( void )
 			int nColor = random->RandomInt( 128, 255 );
 			pParticle->m_uchColor[0]	= pParticle->m_uchColor[1] = pParticle->m_uchColor[2] = nColor;
 			
-			pParticle->m_uchStartSize	= random->RandomInt( 32, 85 ) * vDev;
+			pParticle->m_uchStartSize = (uint8)clamp((int)(random->RandomInt(32,85)*vDev*visualScale),32,MIN(255,(int)(85*visualScale)));
 
-			pParticle->m_uchStartSize	= clamp( pParticle->m_uchStartSize, (uint8) 32, (uint8) 85 );
+			// Size is clamped before converting to the legacy 8-bit particle field.
 
-			pParticle->m_uchEndSize		= (int)((float)pParticle->m_uchStartSize * 1.5f);
+			pParticle->m_uchEndSize		= MIN(255,(int)((float)pParticle->m_uchStartSize * 1.5f));
 			
 			pParticle->m_uchStartAlpha	= 255;
 			pParticle->m_uchEndAlpha	= 0;
@@ -1413,6 +1491,84 @@ void C_MegaBombExplosionEffect::CreateCore( void )
 void HelicopterMegaBombCallback( const CEffectData &data )
 {
 	C_MegaBombExplosionEffect().Create( data.m_vOrigin, 1.0f, 1.0f, 0 );
+	const float scale=clamp(bs2_heli_bomb_visual_scale.GetFloat(),1.0f,4.5f);
+	DevMsg("HELI_BOMB_VISUAL time=%.2f scale=%.2f origin=%.1f %.1f %.1f\n",gpGlobals->curtime,scale,data.m_vOrigin.x,data.m_vOrigin.y,data.m_vOrigin.z);
+	if(scale<=1.0f) return;
+	if(bs2_heli_bomb_realism.GetBool())
+	{
+		// Brief local illumination; no sustained glowing fireball.
+		dlight_t *light=effects->CL_AllocDlight(0);
+		if(light){light->origin=data.m_vOrigin+Vector(0,0,64);light->radius=240*scale;light->color.r=255;light->color.g=190;light->color.b=100;light->color.exponent=2;light->die=gpGlobals->curtime+.11f;light->decay=light->radius/.11f;}
+		// Delayed, cooling combustion smoke rising above the dirt plume.
+		CSmartPtr<CHeliBlastCloud> smoke=CHeliBlastCloud::Create("heli_blast_cooling_smoke",false);
+		smoke->SetSortOrigin(data.m_vOrigin);
+		PMaterialHandle material=smoke->GetPMaterial("particle/particle_smokegrenade");
+		for(int i=0;i<48;i++)
+		{
+			// Height and width are correlated: broad lower billows, narrow upper wisps.
+			const float tier=i/47.0f;
+			const float pearWidth=.22f+.78f*powf(1.0f-tier,.8f);
+			Vector pos=data.m_vOrigin+Vector(random->RandomFloat(-35,35)*scale*pearWidth,random->RandomFloat(-35,35)*scale*pearWidth,random->RandomFloat(20,55));
+			SimpleParticle *p=(SimpleParticle*)smoke->AddParticle(sizeof(SimpleParticle),material,pos);if(!p)break;
+			p->m_flLifetime=-random->RandomFloat(.10f,.30f);p->m_flDieTime=random->RandomFloat(4.0f,5.5f);
+			p->m_vecVelocity.Init(random->RandomFloat(-45,45)*scale*pearWidth,random->RandomFloat(-45,45)*scale*pearWidth,(90+200*tier)*sqrtf(scale));
+			int shade=random->RandomInt(32,65);p->m_uchColor[0]=shade;p->m_uchColor[1]=(uint8)(shade*.95f);p->m_uchColor[2]=(uint8)(shade*.88f);
+			p->m_uchStartSize=(uint8)MIN(255,(int)(random->RandomFloat(24,45)*scale*pearWidth));p->m_uchEndSize=(uint8)clamp((int)(255*pearWidth),48,255);
+			p->m_uchStartAlpha=155;p->m_uchEndAlpha=0;p->m_flRoll=random->RandomFloat(0,360);p->m_flRollDelta=random->RandomFloat(-.4f,.4f);
+		}
+	}
+
+	// Broad brown dust plume plus a low skirt of dirt rolling across the ground.
+	CSmartPtr<CSimpleEmitter> dust=bs2_heli_bomb_realism.GetBool() ? CHeliBlastCloud::Create("heli_blast_earth_cloud",false,true) : CSimpleEmitter::Create("bs2_heli_bomb_earth_cloud");
+	dust->SetSortOrigin(data.m_vOrigin);
+	PMaterialHandle mat=dust->GetPMaterial((bs2_heli_bomb_animated_dirt.GetBool() && bs2_heli_bomb_realism.GetBool())?"bs2/impact_dirt/earth_flipbook":"particle/particle_smokegrenade");
+	for(int i=0;i<112;i++)
+	{
+		const bool skirt=i>=80;
+		const float tier=skirt?0.0f:i/79.0f;
+		const float pearWidth=skirt?1.0f:.20f+.80f*powf(1.0f-tier,.7f);
+		const float angle=bs2_heli_bomb_realism.GetBool() ? (i%7)*(2*M_PI/7.0f)+random->RandomFloat(-.18f,.18f) : random->RandomFloat(0,2*M_PI);
+		const Vector radial(cosf(angle),sinf(angle),0);
+		Vector pos=data.m_vOrigin+radial*random->RandomFloat(12,55)*scale*pearWidth+Vector(0,0,skirt?2:16);
+		SimpleParticle *particle=(SimpleParticle*)dust->AddParticle(sizeof(SimpleParticle),mat,pos);
+		if(!particle) break;
+		particle->m_flLifetime=0;particle->m_flDieTime=bs2_heli_bomb_realism.GetBool()?random->RandomFloat(3.5f,5.5f):random->RandomFloat(2.4f,3.6f);
+		particle->m_vecVelocity=radial*random->RandomFloat(skirt?110:35,skirt?180:85)*scale*pearWidth;
+		particle->m_vecVelocity.z=(bs2_heli_bomb_realism.GetBool() && !skirt)
+			? (210+650*powf(tier,1.6f)+random->RandomFloat(-35,35))*sqrtf(scale)
+			: random->RandomFloat(skirt?4:70,skirt?16:150)*scale;
+		const float tint=random->RandomFloat(0.65f,1.10f);
+		particle->m_uchColor[0]=(uint8)(210*tint);
+		particle->m_uchColor[1]=(uint8)(205*tint);
+		particle->m_uchColor[2]=(uint8)(195*tint);
+		particle->m_uchStartSize=(uint8)MIN(255,(int)((bs2_heli_bomb_realism.GetBool() && !skirt ? random->RandomFloat(18,30)*(.4f+.6f*pearWidth) : random->RandomFloat(22,42))*scale));
+		particle->m_uchEndSize=(uint8)MIN(255,(int)(random->RandomFloat(90,140)*scale*pearWidth));
+		particle->m_uchStartAlpha=skirt?95:(uint8)(175+55*pearWidth);particle->m_uchEndAlpha=0;
+		particle->m_flRoll=random->RandomFloat(0,360);particle->m_flRollDelta=random->RandomFloat(-.8f,.8f);
+	}
+	// Dense ballistic dirt ejecta; collision lets the chunks fall back and bounce.
+	Vector up(0,0,1);
+	CSmartPtr<CFleckParticles> flecks=CFleckParticles::Create("bs2_heli_bomb_dirt_chunks",data.m_vOrigin,Vector(1600,1600,1600));
+	if (!flecks) return;
+	{
+		flecks->m_ParticleCollision.Setup(data.m_vOrigin,&up,1.0f,400,1400,900,0.2f);
+		PMaterialHandle chunks[2]={flecks->GetPMaterial("effects/fleck_cement1"),flecks->GetPMaterial("effects/fleck_cement2")};
+		for(int i=0;i<128;i++)
+		{
+			Vector pos=data.m_vOrigin+Vector(random->RandomFloat(-30,30),random->RandomFloat(-30,30),10);
+			FleckParticle *particle=(FleckParticle*)flecks->AddParticle(sizeof(FleckParticle),chunks[i%2],pos);
+			if(!particle) break;
+			particle->m_flLifetime=0;particle->m_flDieTime=random->RandomFloat(2.4f,3.4f);
+			particle->m_uchSize=random->RandomInt(3,9);
+			const float angle=(i%7)*(2*M_PI/7.0f)+random->RandomFloat(-.22f,.22f);
+			Vector dir(cosf(angle),sinf(angle),random->RandomFloat(.35f,1.5f));VectorNormalize(dir);
+			particle->m_vecVelocity=dir*random->RandomFloat(350,650)*sqrtf(scale);
+			particle->m_flRoll=random->RandomFloat(0,360);particle->m_flRollDelta=random->RandomFloat(-300,300);
+			const float tint=random->RandomFloat(.6f,1.1f);
+			particle->m_uchColor[0]=(uint8)(110*tint);particle->m_uchColor[1]=(uint8)(75*tint);particle->m_uchColor[2]=(uint8)(42*tint);
+		}
+	}
+
 }
 
 DECLARE_CLIENT_EFFECT( "HelicopterMegaBomb", HelicopterMegaBombCallback );

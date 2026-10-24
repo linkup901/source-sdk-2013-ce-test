@@ -1,0 +1,75 @@
+@PointClass base(Targetname) = bs2_heli_node : "Helicopter cinematic keyframe"
+[
+ hoveramplitude(float) : "Gentle lateral hover sway (units; zero disables)" : 0
+ duration(float) : "Travel time from previous node (seconds)" : 2
+ nextnode(target_destination) : "Next keyframe; blank ends and holds"
+ velocity(vector) : "World velocity at this keyframe" : "0 0 0"
+ pitch(float) : "Unwrapped pitch (negative is nose up)" : 0
+ yaw(float) : "Unwrapped world yaw" : 0
+ roll(float) : "Unwrapped roll" : 0
+ smoothangles(boolean) : "Use continuous authored angular tangents" : 0
+ ignoreobstructions(boolean) : "Visual clearance test only: continue through obstructions" : 0
+ angularstart(vector) : "Starting pitch yaw roll velocity (degrees/second)" : "0 0 0"
+ angularend(vector) : "Ending pitch yaw roll velocity (degrees/second)" : "0 0 0"
+ output OnReached(void) : "Helicopter reaches this keyframe"
+]
+@PointClass base(Targetname, Parentname, Angles) = bs2_heli_camera : "Rigid aircraft camera"
+[
+ startfromplayer(boolean) : "Start at the current seated player view; use Zoom without MoveTo for an optical zoom" : 0
+ initialfov(integer) : "Immediate FOV on Enable (0 leaves current FOV)" : 0
+ usemountoffset(boolean) : "Apply local mount offset on Enable" : 0
+ mountoffset(vector) : "Helicopter local camera position" : "0 0 0"
+ input SwitchTo(string) : "Atomically hand control to another bs2_heli_camera"
+ lookentity(target_destination) : "Optional camera aim target"
+ lookattachment(string) : "Aim attachment on target model" : "gun"
+ shakeamplitude(float) : "Peak camera shake in degrees" : 3.5
+ shakeduration(float) : "Shake duration (seconds)" : 1.2
+ shakefrequency(float) : "Shake frequency (Hz)" : 12
+ moveduration(float) : "MoveTo duration (seconds)" : 1.7
+ zoomduration(float) : "Zoom duration (seconds)" : 1.1
+ input MoveTo(string) : "Move and pan to target sharing this camera's parent"
+ input Zoom(integer) : "Smoothly zoom to field of view (20-110 degrees)"
+ input EnterBuggy(string) : "Seat the local player in the named vehicle for scene setup"
+ input HoldBuggy(void) : "Hold the occupied buggy before switching view; Disable releases it"
+ input StartShake(void) : "Jolt camera then smoothly settle to its mount"
+ input Enable(void) : "Use activator player, or local player; freeze controls"
+ input Disable(void) : "Restore previous view and controls"
+]
+// Existing npc_helicopter supports these additional I/O entries, entered with SmartEdit off:
+// StartCinematic(string): first bs2_heli_node targetname
+// ResumeFlight(void): release cinematic control to normal helicopter AI
+// OnCinematicLanded: final node reached; aircraft stays held
+// OnCinematicAborted: invalid node or obstructed path; aircraft stays held
+// cinematicmodel(string key): optional alternate model with authored turret sequences
+// DeployCinematicGun(void): play turret deployment, scan, then return to player tracking; flight idle stays active
+// CinematicBurstAt(string): fire a 1.6-second burst toward the named entity
+
+@PointClass base(Targetname, Angles) = bs2_wash_shooter : "Scaled debris for cinematic rotorwash"
+[
+ shootmodel(studio) : "Fragment model" : "models/props_debris/concrete_chunk08a.mdl"
+ scale(float) : "Fragment model scale" : 0.2
+ m_iGibs(integer) : "Fragments per burst" : 8
+ m_flVelocity(float) : "Launch speed" : 260
+ m_flVariance(float) : "Direction variation" : 0.35
+ m_flGibLife(float) : "Lifetime" : 2.2
+ delay(float) : "Interval between fragments" : 0.16
+ spawnflags(flags) = [ 1 : "Repeatable" : 1 4 : "Remove when lifetime expires" : 1 ]
+ input Shoot(void) : "Emit a burst of scaled fragments"
+]
+
+@PointClass base(Targetname, Parentname, Angles) = bs2_heli_lamp : "Scene spotlight aim and beam-triggered blindness"
+[
+ lightentity(target_destination) : "Dynamic light"
+ beamentity(target_destination) : "Visible spotlight beam"
+ targetentity(target_destination) : "Illuminated vehicle"
+ blindrelay(target_destination) : "Relay triggered when beam reaches player"
+ input Enable(void) : "Sweep toward target, then track; trigger blindness once when unobstructed"
+ input Disable(void) : "Stop aiming"
+]
+@PointClass base(Targetname) = bs2_rotorwash : "Height-sensitive layered helicopter brownout"
+[
+ helicopter(target_destination) : "Helicopter"
+ input Start(void) : "Begin ground tracing and dust emission"
+ input Stop(void) : "Stop new dust; emitted particles disperse naturally"
+]
+// npc_helicopter CinematicMegaBomb(void): release prototype mega bomb on incoming pass.
