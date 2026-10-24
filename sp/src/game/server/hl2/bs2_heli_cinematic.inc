@@ -254,6 +254,8 @@ public:
 	EHANDLE m_hOldView;
 	bool m_bWasFrozen;
 	int m_nInitialFov;
+	bool m_bUseMountOffset;
+	Vector m_vecMountOffset;
 	bool m_bStartFromPlayer;
 	float m_flPlayerViewStart;
 	QAngle m_angPlayerViewStart;
@@ -378,6 +380,7 @@ public:
 	{
 		DevMsg("BS2 helicopter camera Enable\n");
 		if ( m_hPlayer ) return;
+		if ( m_bUseMountOffset && GetMoveParent() ) SetLocalOrigin(m_vecMountOffset);
 		CBasePlayer *player = ToBasePlayer(data.pActivator);
 		if ( !player ) player = UTIL_GetLocalPlayer();
 		if ( !player ) return;
@@ -468,6 +471,8 @@ BEGIN_DATADESC( CBS2HeliCamera )
 	DEFINE_FIELD( m_hOldView, FIELD_EHANDLE ),
 	DEFINE_FIELD( m_bWasFrozen, FIELD_BOOLEAN ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Enable", InputEnable ),
+	DEFINE_KEYFIELD( m_bUseMountOffset, FIELD_BOOLEAN, "usemountoffset" ),
+	DEFINE_KEYFIELD( m_vecMountOffset, FIELD_VECTOR, "mountoffset" ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Disable", InputDisable ),
 END_DATADESC()
 

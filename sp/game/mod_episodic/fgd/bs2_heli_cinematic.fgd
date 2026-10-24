@@ -17,6 +17,8 @@
 [
  startfromplayer(boolean) : "Start at the current seated player view; use Zoom without MoveTo for an optical zoom" : 0
  initialfov(integer) : "Immediate FOV on Enable (0 leaves current FOV)" : 0
+ usemountoffset(boolean) : "Apply local mount offset on Enable" : 0
+ mountoffset(vector) : "Helicopter local camera position" : "0 0 0"
  input SwitchTo(string) : "Atomically hand control to another bs2_heli_camera"
  lookentity(target_destination) : "Optional camera aim target"
  lookattachment(string) : "Aim attachment on target model" : "gun"
