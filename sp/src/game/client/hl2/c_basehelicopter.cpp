@@ -21,6 +21,7 @@
 
 IMPLEMENT_CLIENTCLASS_DT( C_BaseHelicopter, DT_BaseHelicopter, CBaseHelicopter )
 	RecvPropTime( RECVINFO( m_flStartupTime ) ),
+	RecvPropBool( RECVINFO( m_bBS2SpeedTrails ) ),
 END_RECV_TABLE()
 
 
@@ -30,6 +31,7 @@ C_BaseHelicopter::C_BaseHelicopter()
 	m_SmoothedSpeed = 0.0f;
 	m_LastSpeedLog = 0.0f;
 	m_LastSpeedFrame = -1;
+	m_bBS2SpeedTrails = false;
 }
 
 
@@ -100,22 +102,31 @@ EXPOSE_INTERFACE( CHeliBladeMaterialProxy, IMaterialProxy, "HeliBlade" IMATERIAL
 
 
 // Isolated helicopter ribbon review. No server or campaign changes required.
-static ConVar bs2_heli_trails("bs2_heli_trails", "1", FCVAR_ARCHIVE);
+// Master switch only. Not archived, so a one-off "bs2_heli_trails 0" cannot get
+// saved into config.cfg and silently disable the cinematic trails later.
+static ConVar bs2_heli_trails("bs2_heli_trails", "1", FCVAR_NONE, "Allow wing-tip speed ribbons on cinematic helicopters");
 static ConVar bs2_heli_trail_start("bs2_heli_trail_start", "550", FCVAR_ARCHIVE);
 static ConVar bs2_heli_trail_full("bs2_heli_trail_full", "850", FCVAR_ARCHIVE);
 static ConVar bs2_heli_trail_life("bs2_heli_trail_life", "0.65", FCVAR_ARCHIVE);
 static ConVar bs2_heli_trail_debug("bs2_heli_trail_debug", "0", FCVAR_CHEAT);
 
+// Trails only for helicopters the server flagged as cinematic (cinematicassets,
+// cinematicmodel, or StartCinematic). Gunships and gameplay helicopters never.
+bool C_BaseHelicopter::WantsSpeedTrail()
+{
+	if (!m_bBS2SpeedTrails || !bs2_heli_trails.GetBool()) return false;
+	const char *name=GetModel() ? modelinfo->GetModelName(GetModel()) : NULL;
+	return name && Q_stristr(name,"helicopter");
+}
+
 void C_BaseHelicopter::GetRenderBounds(Vector &mins, Vector &maxs)
 {
 	BaseClass::GetRenderBounds(mins, maxs);
 	// Keep history visible when the helicopter itself approaches the screen edge.
-	const char *name=GetModel() ? modelinfo->GetModelName(GetModel()) : NULL;
 	// Ribbon visibility padding is not part of the aircraft's shadow caster.
 	// Including it here during shadow queries projects an oversized footprint
 	// onto terrain and can exhaust the engine's 16-bit displacement shadow cache.
-	if (!(m_EntClientFlags & ENTCLIENTFLAG_GETTINGSHADOWRENDERBOUNDS) &&
-		bs2_heli_trails.GetBool() && name && Q_stristr(name,"helicopter"))
+	if (!(m_EntClientFlags & ENTCLIENTFLAG_GETTINGSHADOWRENDERBOUNDS) && WantsSpeedTrail())
 	{ mins -= Vector(1600,1600,1600); maxs += Vector(1600,1600,1600); }
 }
 
@@ -167,8 +178,10 @@ void C_BaseHelicopter::UpdateSpeedTrail()
 void C_BaseHelicopter::DrawSpeedTrail()
 {
 	const int n=m_SpeedPoints.Count(); if(n<2) return;
-	IMaterial *mat=materials->FindMaterial("bs2/heli/speed_ribbon",TEXTURE_GROUP_OTHER);
-	if(mat->IsErrorMaterial()) return;
+	if(!m_SpeedRibbonMaterial.IsValid())
+		m_SpeedRibbonMaterial.Init("bs2/heli/speed_ribbon",TEXTURE_GROUP_CLIENT_EFFECTS);
+	IMaterial *mat=m_SpeedRibbonMaterial;
+	if(!mat || mat->IsErrorMaterial()) return;
 	CMatRenderContextPtr ctx(materials);
 	const float life=clamp(bs2_heli_trail_life.GetFloat(),0.05f,2.0f);
 	for(int k=0;k<2;k++)
@@ -206,9 +219,9 @@ int C_BaseHelicopter::DrawModel(int flags)
 {
 	int result=BaseClass::DrawModel(flags);
 	if(flags & (STUDIO_SHADOWDEPTHTEXTURE | STUDIO_SSAODEPTHTEXTURE)) return result;
-	// Gunships inherit this class too; restrict the review to the HL2 helicopter.
-	const char *name=GetModel() ? modelinfo->GetModelName(GetModel()) : NULL;
-	if(!bs2_heli_trails.GetBool() || !name || !Q_stristr(name,"helicopter"))
+	// Gunships inherit this class too; WantsSpeedTrail restricts ribbons to
+	// flagged cinematic HL2 helicopters.
+	if(!WantsSpeedTrail())
 	{ m_SpeedPoints.RemoveAll(); m_LastSpeedTime=-1; return result; }
 	UpdateSpeedTrail(); DrawSpeedTrail(); return result;
 }

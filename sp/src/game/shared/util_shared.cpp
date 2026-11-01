@@ -414,7 +414,11 @@ bool CTraceFilterLOS::ShouldHitEntity( IHandleEntity *pHandleEntity, int content
 {
 	CBaseEntity *pEntity = EntityFromEntityHandle( pHandleEntity );
 
-	if ( !pEntity->BlocksLOS() )
+	// BS2 crash fix (1 Nov 2026): static props have no CBaseEntity, so pEntity is NULL
+	// for them. The stock code called BlocksLOS() on NULL and crashed when an NPC's
+	// line-of-sight trace (CBaseEntity::FVisible) touched one. Let the standard filter
+	// decide for static props, exactly as every other trace filter does.
+	if ( pEntity && !pEntity->BlocksLOS() )
 		return false;
 
 	return CTraceFilterSimple::ShouldHitEntity( pHandleEntity, contentsMask );

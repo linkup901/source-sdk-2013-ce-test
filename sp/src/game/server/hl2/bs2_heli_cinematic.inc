@@ -117,6 +117,7 @@ void CNPC_AttackHelicopter::InputStartCinematic( inputdata_t &data )
 	m_flCinematicStart = gpGlobals->curtime;
 	m_hCinematicNode = node;
 	m_bCinematic = true;
+	SetBS2SpeedTrails( true );
 	SetMoveType(MOVETYPE_NONE);
 	SetAbsVelocity(vec3_origin);
 	SetLocalAngularVelocity(vec3_angle);

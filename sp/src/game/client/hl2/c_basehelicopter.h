@@ -12,6 +12,7 @@
 
 
 #include "c_ai_basenpc.h"
+#include "materialsystem/MaterialSystemUtil.h"
 
 
 class C_BaseHelicopter : public C_AI_BaseNPC
@@ -34,6 +35,13 @@ private:
 	Vector m_LastSpeedOrigin;
 	float m_LastSpeedTime, m_SmoothedSpeed, m_LastSpeedLog;
 	int m_LastSpeedFrame;
+	// BS2: wing-tip ribbons are opt-in per helicopter (cinematic helicopters only).
+	// Set by the server; stock npc_helicopters used for gameplay never draw them.
+	bool m_bBS2SpeedTrails;
+	// Holds a reference so the material system cannot unload the ribbon material
+	// while it is still being drawn ("bad reference count 0 when being bound").
+	CMaterialReference m_SpeedRibbonMaterial;
+	bool WantsSpeedTrail();
 	void UpdateSpeedTrail();
 	void DrawSpeedTrail();
 };

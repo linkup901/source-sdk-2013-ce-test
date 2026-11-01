@@ -1097,6 +1097,9 @@ void CNPC_AttackHelicopter::Spawn( void )
 		SetModel( CHOPPER_DRONE_NAME );
 	}
 
+	// BS2: wing-tip speed ribbons belong to cinematic helicopters only.
+	SetBS2SpeedTrails( m_bCinematicAssets || m_iszCinematicModel != NULL_STRING );
+
 	ExtractBbox( SelectHeaviestSequence( ACT_IDLE ), m_cullBoxMins, m_cullBoxMaxs ); 
 	GetEnemies()->SetFreeKnowledgeDuration( DEFAULT_FREE_KNOWLEDGE_DURATION );
 
