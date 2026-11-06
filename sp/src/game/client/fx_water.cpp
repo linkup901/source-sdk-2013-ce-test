@@ -20,6 +20,7 @@
 #include "soundenvelope.h"
 #include "c_recipientfilter.h"
 #include "cliententitylist.h"
+#include "view.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
@@ -695,6 +696,11 @@ static ConVar bs2_wheel_wake_timeout( "bs2_wheel_wake_timeout", "0.45", 0, "Seco
 static ConVar bs2_wheel_wake_topspeed( "bs2_wheel_wake_topspeed", "560", 0, "Buggy speed (HU/s) treated as top speed for the water sound." );
 static ConVar bs2_wheel_wake_brake_decel( "bs2_wheel_wake_brake_decel", "450", 0, "Deceleration (HU/s^2) above which the water sound drops fast (braking)." );
 static ConVar bs2_wheel_wake_volume( "bs2_wheel_wake_volume", "1", 0, "Buggy water drive sound volume scale." );
+static ConVar bs2_wheel_wake_front_scale( "bs2_wheel_wake_front_scale", "0.45", 0, "Spray strength at the front wheels (rear = 1): the wake builds up toward the back." );
+static ConVar bs2_wheel_wake_axle_split( "bs2_wheel_wake_axle_split", "-50", 0, "Vehicle-local Y between the axles (wheels above it count as front)." );
+static ConVar bs2_wheel_wake_cam_near( "bs2_wheel_wake_cam_near", "70", 0, "Camera closer than this to a wheel: spray at bs2_wheel_wake_cam_min." );
+static ConVar bs2_wheel_wake_cam_far( "bs2_wheel_wake_cam_far", "170", 0, "Camera further than this from a wheel: full spray." );
+static ConVar bs2_wheel_wake_cam_min( "bs2_wheel_wake_cam_min", "0.3", 0, "Spray strength when a camera sits right at the wheel (tyre / rear-wheel cams)." );
 static ConVar bs2_wheel_wake_debug( "bs2_wheel_wake_debug", "0", 0, "Print buggy wheel wake / water sound state." );
 
 #define BS2_WATER_DRIVE_LOOP	"vehicles/airboat/pontoon_fast_water_loop1.wav"
@@ -807,7 +813,11 @@ public:
 				w.m_vecPos += ( target - w.m_vecPos ) * MIN( 1.0f, frametime * 10.0f );
 				w.m_vecPos.z = target.z;
 			}
-			w.m_flIntensity = RemapValClamped( speed, 20.0f, 600.0f, 0.25f, 1.0f );
+			// the spray thins out for a camera parked at the wheel (tyre / rear-wheel cams) and builds up toward the back axle
+			const float camDist = ( MainViewOrigin() - w.m_vecPos ).Length();
+			const float camScale = RemapValClamped( camDist, bs2_wheel_wake_cam_near.GetFloat(), bs2_wheel_wake_cam_far.GetFloat(), bs2_wheel_wake_cam_min.GetFloat(), 1.0f );
+			const float axleScale = ( w.m_vecLocalCur.y > bs2_wheel_wake_axle_split.GetFloat() ) ? bs2_wheel_wake_front_scale.GetFloat() : 1.0f;
+			w.m_flIntensity = RemapValClamped( speed, 20.0f, 600.0f, 0.25f, 1.0f ) * camScale * axleScale;
 			Apply( w );
 		}
 		UpdateSound( pWaterVehicle, frametime );
@@ -849,7 +859,7 @@ public:
 			m_Wakes[best].m_vecPos = data.m_vOrigin;
 			m_Wakes[best].m_vecLocalCur = local;
 			if ( bs2_wheel_wake_debug.GetBool() )
-				Msg( "BS2 wake start (%d active) vehicle %d\n", m_Wakes.Count(), pVeh ? pVeh->entindex() : -1 );
+				Msg( "BS2 wake start (%d active) vehicle %d local %.0f %.0f\n", m_Wakes.Count(), pVeh ? pVeh->entindex() : -1, local.x, local.y );
 		}
 		BS2WheelWake_t &w = m_Wakes[best];
 		w.m_hVehicle = pVeh;
