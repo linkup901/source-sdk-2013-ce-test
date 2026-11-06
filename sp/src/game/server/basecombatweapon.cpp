@@ -243,7 +243,10 @@ public:
 	}
 	virtual bool ShouldHitEntity( IHandleEntity *pServerEntity, int contentsMask )
 	{
-		CBaseEntity *pEntity = (CBaseEntity *)pServerEntity;
+		// BS2 crash fix (3 Nov 2026): static props have no CBaseEntity; let the standard filter decide.
+		CBaseEntity *pEntity = EntityFromEntityHandle( pServerEntity );
+		if ( !pEntity )
+			return BaseClass::ShouldHitEntity( pServerEntity, contentsMask );
 
 		if ( pEntity->GetCollisionGroup() == COLLISION_GROUP_WEAPON )
 			return false;
