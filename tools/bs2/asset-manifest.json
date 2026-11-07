@@ -1,0 +1,211 @@
+{
+  "origin": "Existing BS2-TiltShift-Preview assets, imported 2026-10-11. Valve model derivatives require the mounted licensed HL2/EP2 content; D-DIN includes its OFL license. Stock EP2 particle registrations are retained in the new-mod manifest.",
+  "files": [
+    {
+      "path": "credits.txt",
+      "sha256": "26611182a467110673ae92fc5f2ce0122f8b8aa457008083aea4e7176b3b2f4a",
+      "text": true
+    },
+    {
+      "path": "materials/bs2/veins/vein_00.vtf",
+      "sha256": "446ed73b0e3a0b83216ea4914932135b5f7f79ee70ca0c413ffa6eafc8f04878"
+    },
+    {
+      "path": "materials/bs2/veins/vein_01.vtf",
+      "sha256": "97048f2fa7455b04795ae77228d25f432fa5d5558289bf6f7f97b3be690f145a"
+    },
+    {
+      "path": "materials/bs2/veins/vein_02.vtf",
+      "sha256": "0c0723d1c7ec12b3530c2cad8f65804596daae8dba37bdf90f9df2623b32675a"
+    },
+    {
+      "path": "materials/bs2/veins/vein_03.vtf",
+      "sha256": "e843da614a7775dd4a90c233745ae033701300b8e9662e8b569481e45769be16"
+    },
+    {
+      "path": "materials/bs2/veins/vein_04.vtf",
+      "sha256": "b1618d7b1a11677ee4c8683e41a2489cf9e4b2e39d5c309b5dec4b7b1c16fd5c"
+    },
+    {
+      "path": "materials/bs2/veins/vein_05.vtf",
+      "sha256": "5e76ae545881f559ea1d440079eaf529296b0789c114ce56c7123a6298a3d803"
+    },
+    {
+      "path": "materials/bs2/veins/vein_06.vtf",
+      "sha256": "7e7c5152c81714dbf4dd5efed84b454613b4418aa77ccf989b5ae1470a7222ad"
+    },
+    {
+      "path": "materials/bs2/veins/vein_07.vtf",
+      "sha256": "0911a3d5e0bb1a8086ac8af965584b8bc34f957c5384913461b9c92abd54023d"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_armor_basecolor.vmt",
+      "sha256": "6a08265e322fdc9c2f4dbbf43371bf358b121d62fea17796664fcb5ebf76d7a3",
+      "text": true
+    },
+    {
+      "path": "materials/models/blackhunter/mini_armor_basecolor.vtf",
+      "sha256": "4eb21c15f09a80ffae23d09022b5f21b748fd280711f33ca24a689b6b997c1fc"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_armor_exponent.vtf",
+      "sha256": "d0e0d3f014796813b6d506c5649f24721472ce3997fd61c6d93f4f1fe2ab08bf"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_armor_normal.vtf",
+      "sha256": "d09e204bc31ab549b5c73ad434fe461293d04185b9c2dff28d05d235f873514c"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_iridescence.vtf",
+      "sha256": "d8a5637f647ca59c642ee0fd571bbfa36963c96539b32723d3277866f9538877"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_skin_basecolor.vmt",
+      "sha256": "da6956dd36f50c351c10b2a4c61712287e797e5df29aabd642073f060b9ee30e",
+      "text": true
+    },
+    {
+      "path": "materials/models/blackhunter/mini_skin_basecolor.vtf",
+      "sha256": "9c7ef17b02439f0e9fdb271e0fb3b1a19b734bad7c23c8eeaddfbbbaf75e7fbe"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_skin_exponent.vtf",
+      "sha256": "71a024f812b826ca4bff33df51f9cf5634f807929f1a7495cd4c58dc8f544cef"
+    },
+    {
+      "path": "materials/models/blackhunter/mini_skin_normal.vtf",
+      "sha256": "9655eade275779cf53803427ee6ae357984eaa2a492bbe55c6022b0f3d4237c2"
+    },
+    {
+      "path": "materials/models/crabby/allinonebacup2.vmt",
+      "sha256": "2e6ddb7fa2cd2cc55b6ec264b1414bd2bcecb4a4359683e9bf1e1d9112ddcba1",
+      "text": true
+    },
+    {
+      "path": "materials/models/crabby/crabby_normal.vtf",
+      "sha256": "dd8b4ee9dc3c8e1ccd192a162b02a57ba5b9ef8185bdd14b15d1b9ec96c6c1c4"
+    },
+    {
+      "path": "materials/models/crabby/crabby_skin.vtf",
+      "sha256": "892dbd97cee7a4e98a62aa8426b8632b8238dc9facc69dd4788ebc767b55cdbb"
+    },
+    {
+      "path": "materials/particle/bs2_fog/fog_wisps.vmt",
+      "sha256": "eed67d46f1d4f9fbe632d49312f8402547a51899e0b72336c68884e21a3d7f4e",
+      "text": true
+    },
+    {
+      "path": "materials/particle/bs2_fog/fog_wisps.vtf",
+      "sha256": "abdf8fc1ad11dc7ba645007f6b8dd0b6298a5240b968960e719d8db29578f6fc"
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_00.vmt",
+      "sha256": "3ea51448d1a81921710a5a9621e27096df9a8f7851fe5801260106bcf039bebe",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_01.vmt",
+      "sha256": "2a20b05abc86bb683d9432396236ad612467743eef46711d3b693bc879a4b605",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_02.vmt",
+      "sha256": "8b6e7c5bea431f352825ff0a174807af97ece646c55e49e2f3db041e0003593c",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_03.vmt",
+      "sha256": "5c9e6512516ab6959c305b9ea82dea5bf0881ac159ba8924e53d8fb42771a3d7",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_04.vmt",
+      "sha256": "f87e9b7ee35388d3f72a9b5386999da67b9b4c8d85057bca00f1ab4c6182afea",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_05.vmt",
+      "sha256": "1d6bcbde3e06cf1479a64fdcc4336b8ebfe0ca758fc7a4be8f6fab708b647b51",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_06.vmt",
+      "sha256": "aeb12bf4e05f02b564fd833f4c369ff3f997d9370f8623d7958aa9e2344d176a",
+      "text": true
+    },
+    {
+      "path": "materials/vgui/bs2/veins/vein_07.vmt",
+      "sha256": "64b3fb8b97543008f7bbe9e84c114d8508fb33769a51a654cd1ca74ab46877de",
+      "text": true
+    },
+    {
+      "path": "models/blackhunter/hunter.dx80.vtx",
+      "sha256": "969c80d417c396ca795389bc08ed7e8e2cffbdaaba4262660d0aafd73bb84ea9"
+    },
+    {
+      "path": "models/blackhunter/hunter.dx90.vtx",
+      "sha256": "a20359ee1e6b377b634ee0b20ca1c686de0084cd40694aecee0db625912c3b8e"
+    },
+    {
+      "path": "models/blackhunter/hunter.mdl",
+      "sha256": "467ecd2af0e66a32f44578f458356979aac638ea8008b7d5b8534826606e6cc4"
+    },
+    {
+      "path": "models/blackhunter/hunter.phy",
+      "sha256": "502b7d17f6871c53af01b1f9b437495ce12a08f76ab8e67de278b38176398042"
+    },
+    {
+      "path": "models/blackhunter/hunter.sw.vtx",
+      "sha256": "8455970171804456e4a6092adebc6954772fdfa6ad57ebde1fe1f36292012e0f"
+    },
+    {
+      "path": "models/blackhunter/hunter.vvd",
+      "sha256": "d34be5621905da54d3c409cd848934f49827a1174ccb7cc4a266bb753305e6c1"
+    },
+    {
+      "path": "models/crabby/crabby.ani",
+      "sha256": "dc7d1e075d6850bc29c6c90031b8fe46e1aebd51b19f02c26bdc73b7eee1b6e8"
+    },
+    {
+      "path": "models/crabby/crabby.dx80.vtx",
+      "sha256": "b4937fa2dc7896364c67ba081b238bece184723a05c4a048a10dd965e5816e2c"
+    },
+    {
+      "path": "models/crabby/crabby.dx90.vtx",
+      "sha256": "926f4af7a68c003e1f62d0b81045eec15bd98ebf28585484bafa3632c6f73129"
+    },
+    {
+      "path": "models/crabby/crabby.mdl",
+      "sha256": "6c43a6b5487a745684f642752bf2e535fedc6485db4a471adbe5ca9d6f23671d"
+    },
+    {
+      "path": "models/crabby/crabby.phy",
+      "sha256": "e70ea4205f541714ec3050584ba8107781aed0631558736cae576b2b157981be"
+    },
+    {
+      "path": "models/crabby/crabby.sw.vtx",
+      "sha256": "62548c1b0eaaabcc456108c8c656316dbd59ee854be5266fbdd2f3156d710ce2"
+    },
+    {
+      "path": "models/crabby/crabby.vvd",
+      "sha256": "46b8346a143dec4dda48238a2c5a3eac59eb3f36e98258c8db577a5aefb5de82"
+    },
+    {
+      "path": "particles/bs2_breath.pcf",
+      "sha256": "6103fd6a17a16120c0f1d4fee67f344f9265ed654a49aa047f191f07c27bbf0a"
+    },
+    {
+      "path": "resource/D-DIN-Bold.ttf",
+      "sha256": "69cc46d24509802693a2a5f6e1b18bcad65f8baf5fd3c08b9bd364beb2a8bdd5"
+    },
+    {
+      "path": "resource/D-DIN-OFL-1.1.txt",
+      "sha256": "cda8692f05767c18293e79982bdfdafdef9bc55aa2e906040f4810c0c38fecf6",
+      "text": true
+    },
+    {
+      "path": "resource/D-DIN.ttf",
+      "sha256": "705bece88e33c8f86d0ace0c7d93ee143b745cba7a99643753a4f91c3c22e204"
+    }
+  ]
+}

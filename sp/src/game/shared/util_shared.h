@@ -16,6 +16,9 @@
 #include "networkvar.h"
 #include "engine/IEngineTrace.h"
 #include "engine/IStaticPropMgr.h"
+#ifndef CLIENT_DLL
+#include "engine/ICollideable.h"
+#endif
 #include "shared_classnames.h"
 
 #ifdef CLIENT_DLL
@@ -77,6 +80,25 @@ bool StandardFilterRules( IHandleEntity *pHandleEntity, int fContentsMask );
 //-----------------------------------------------------------------------------
 // Converts an IHandleEntity to an CBaseEntity
 //-----------------------------------------------------------------------------
+#ifndef CLIENT_DLL
+// SDK 2013 SP's engine static-prop test only accepts 12-bit prop indices.
+// Larger maps can contain valid props above 4095. Validate those handles
+// against the engine's indexed collideable before using a server interface.
+inline bool BS2_IsStaticPropHandle( IHandleEntity *pHandleEntity )
+{
+    // Match the legacy manager: a null handle has no server entity.
+    if ( !pHandleEntity )
+        return true;
+    if ( staticpropmgr->IsStaticProp( pHandleEntity ) )
+        return true;
+    const unsigned int raw = static_cast<unsigned int>( pHandleEntity->GetRefEHandle().ToInt() );
+    if ( ( raw & 0xffff0000u ) != 0x40000000u )
+        return false;
+    ICollideable *pStatic = staticpropmgr->GetStaticPropByIndex( raw & 0xffffu );
+    return pStatic && pStatic->GetEntityHandle() == pHandleEntity;
+}
+#endif
+
 inline const CBaseEntity *EntityFromEntityHandle( const IHandleEntity *pConstHandleEntity )
 {
 	IHandleEntity *pHandleEntity = const_cast<IHandleEntity*>(pConstHandleEntity);
@@ -85,7 +107,7 @@ inline const CBaseEntity *EntityFromEntityHandle( const IHandleEntity *pConstHan
 	IClientUnknown *pUnk = (IClientUnknown*)pHandleEntity;
 	return pUnk->GetBaseEntity();
 #else
-	if ( staticpropmgr->IsStaticProp( pHandleEntity ) )
+	if ( BS2_IsStaticPropHandle( pHandleEntity ) )
 		return NULL;
 
 	IServerUnknown *pUnk = (IServerUnknown*)pHandleEntity;
@@ -99,7 +121,7 @@ inline CBaseEntity *EntityFromEntityHandle( IHandleEntity *pHandleEntity )
 	IClientUnknown *pUnk = (IClientUnknown*)pHandleEntity;
 	return pUnk->GetBaseEntity();
 #else
-	if ( staticpropmgr->IsStaticProp( pHandleEntity ) )
+	if ( BS2_IsStaticPropHandle( pHandleEntity ) )
 		return NULL;
 
 	IServerUnknown *pUnk = (IServerUnknown*)pHandleEntity;

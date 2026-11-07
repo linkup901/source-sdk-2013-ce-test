@@ -7,7 +7,7 @@ class CEnvBSSoftFog : public CPointEntity
  DECLARE_DATADESC();
  DECLARE_SERVERCLASS();
 public:
- CEnvBSSoftFog() { m_Size=Vector(2048,2048,512); m_Color=Vector(105,125,145); m_Density=.0006f; m_Edge=256; m_Layers=48; m_Noise=.15f; m_Speed=4; m_Enabled=true; AddEFlags(EFL_FORCE_CHECK_TRANSMIT); }
+ CEnvBSSoftFog() { m_Size=Vector(2048,2048,512); m_Color=Vector(105,125,145); m_Density=.0006f; m_Edge=256; m_Layers=32; m_Noise=.15f; m_Speed=4; m_Enabled=true; AddEFlags(EFL_FORCE_CHECK_TRANSMIT); }
  int UpdateTransmitState() { return SetTransmitState(FL_EDICT_ALWAYS); }
  void Spawn() { BaseClass::Spawn(); Precache(); for(int i=0;i<3;++i)m_Size.GetForModify()[i]=MAX(m_Size.Get()[i],16.f); m_Density=clamp(m_Density.Get(),0.f,.02f); m_Edge=MAX(m_Edge.Get(),1.f); m_Layers=clamp(m_Layers.Get(),16,64); }
  void Precache() { PrecacheMaterial("bs2/fog/volume"); }

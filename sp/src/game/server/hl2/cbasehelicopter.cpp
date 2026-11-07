@@ -100,6 +100,7 @@ BEGIN_DATADESC( CBaseHelicopter )
 	DEFINE_FIELD( m_flRotorWashEntitySearchTime, FIELD_TIME ),
 	DEFINE_FIELD( m_bSuppressSound,		FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_flStartupTime,	FIELD_TIME ),
+	DEFINE_FIELD( m_bBS2SpeedTrails, FIELD_BOOLEAN ),
 
 	DEFINE_FIELD( m_cullBoxMins,	FIELD_VECTOR ),
 	DEFINE_FIELD( m_cullBoxMaxs,	FIELD_VECTOR ),
@@ -125,6 +126,7 @@ END_DATADESC()
 
 IMPLEMENT_SERVERCLASS_ST( CBaseHelicopter, DT_BaseHelicopter )
 	SendPropTime( SENDINFO( m_flStartupTime ) ),
+	SendPropBool( SENDINFO( m_bBS2SpeedTrails ) ),
 END_SEND_TABLE()
 
 
@@ -137,6 +139,7 @@ CBaseHelicopter::CBaseHelicopter( void )
 	m_cullBoxMaxs = vec3_origin;
 
 	m_hRotorWash = NULL;
+	m_bBS2SpeedTrails = false;
 }
 
 //------------------------------------------------------------------------------

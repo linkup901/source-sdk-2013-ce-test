@@ -6,3 +6,6 @@
 @include "fgd/bs2_veins.fgd"
 @include "fgd/bs2_viewcontrol.fgd"
 @include "fgd/bs_focus_blur.fgd"
+@include "bs_soft_fog.fgd"
+@include "fgd/bs2_crabby.fgd"
+@include "fgd/bs2_blackhunter.fgd"

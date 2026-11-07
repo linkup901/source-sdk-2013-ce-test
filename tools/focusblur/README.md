@@ -5,6 +5,8 @@ with a stationary camera, preserves colour, and leaves the HUD sharp. Blur is
 uniform across the scene, including the weapon model; it approximates defocus
 with a Gaussian filter rather than using depth-dependent focus or bokeh.
 
+For the complete combined runtime, use the `bs2-combined-install` workflow artifact and `docs/BS2-Setup.md`. It includes all three DLLs, fog assets, NPC assets, vein art, fonts, credits and the particle registration merger.
+
 ## Build and install
 
 The source files are registered in the CE client/server VPC projects and the

@@ -444,64 +444,45 @@ static bool WheelCollidesWith( IPhysicsObject *pObj, CBaseEntity *pEntity )
 	return false;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Black Stasis 2 (Phase 2 A6): the ridge crash. Debugger traces (tools\crash_trace.py) showed an access violation in a physics callback of this DLL (read of 0xC38DD180, the bits
-// of a float, used as an entity pointer) when the player's noclip shadow sat inside one solid cliff rock; the rock is the only difference between a clean sweep and the crash.
-// Every callback below takes the entity from the physics object's game data and calls into it. BS2_PhysEnt returns NULL (what the callbacks already treat as "not an entity,
-// ignore") for a pointer that cannot be an entity: below 64 KB, unaligned, or a block of entity size that cannot be read.
-// ------------------------------------------------------------------------------------------------
-#ifdef _WIN32
-static bool BS2_PhysPointerReadable( const void *p )
-{
-	const uintptr_t nAddr = (uintptr_t)p;
-	if ( nAddr < 0x10000 || ( nAddr & 3 ) != 0 )
-		return false;
-
-	// pointers that passed before: the same few entities come up thousands of times
-	static const void *s_Known[64];
-	static int s_nNext = 0;
-	for ( int i = 0; i < ARRAYSIZE( s_Known ); i++ )
-	{
-		if ( s_Known[i] == p )
-			return true;
-	}
-
-	// touch the first and the last byte of an entity-sized block: an access violation here is caught and means 'not a pointer'. (SEH, no windows.h: its macros
-	// - GetObject for one - would break the rest of this file. No object with a destructor may live in this function.)
-	__try
-	{
-		const volatile char *pBytes = (const volatile char *)p;
-		(void)pBytes[0];
-		(void)pBytes[63];
-	}
-	__except( 1 )		// EXCEPTION_EXECUTE_HANDLER
-	{
-		return false;
-	}
-
-	s_Known[s_nNext++ & 63] = p;
-	return true;
-}
-#endif
-
+// Physics game data must identify a currently registered entity. Never read a
+// candidate pointer: static props and stale game data may not be CBaseEntity.
+// Cache serialised handles, not memory readability, so removal/reuse invalidates
+// hits and the cache cannot carry a dangling pointer across a map change.
 static CBaseEntity *BS2_PhysEnt( void *pGameData )
 {
-	if ( !pGameData )
-		return NULL;
-
-#ifdef _WIN32
-	if ( !BS2_PhysPointerReadable( pGameData ) )
-	{
-		static int s_nReported = 0;
-		if ( s_nReported++ < 5 )
-		{
-			Warning( "Physics callback got game data %p that is not an entity: ignored (bs2 A6)\n", pGameData );
-		}
-		return NULL;
-	}
-#endif
-
-	return static_cast<CBaseEntity *>( pGameData );
+    if ( !pGameData ) return NULL;
+    struct CachedEntity
+    {
+        void *pointer;
+        CBaseHandle handle;
+        CachedEntity() : pointer( NULL ) {}
+    };
+    static CachedEntity cache[64];
+    static unsigned int next = 0;
+    for ( int i = 0; i < ARRAYSIZE( cache ); ++i )
+    {
+        if ( cache[i].pointer == pGameData )
+        {
+            CBaseEntity *entity = gEntList.GetBaseEntity( cache[i].handle );
+            if ( entity == pGameData ) return entity;
+            cache[i].pointer = NULL;
+        }
+    }
+    for ( const CEntInfo *info = gEntList.FirstEntInfo(); info;
+          info = gEntList.NextEntInfo( info ) )
+    {
+        if ( !info->m_pEntity ) continue;
+        CBaseEntity *entity = gEntList.GetBaseEntity( info->m_pEntity->GetRefEHandle() );
+        if ( entity != pGameData ) continue;
+        CachedEntity &entry = cache[next++ & 63];
+        entry.pointer = entity;
+        entry.handle = entity->GetRefEHandle();
+        return entity;
+    }
+    static int reported = 0;
+    if ( reported++ < 5 )
+        Warning( "Physics callback ignored unregistered game data %p (BS2)\n", pGameData );
+    return NULL;
 }
 
 CCollisionEvent::CCollisionEvent()

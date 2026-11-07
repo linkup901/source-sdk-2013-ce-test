@@ -192,6 +192,9 @@ public:
 	void	InputUnlock( inputdata_t &inputdata );
 	void	InputTurnOn( inputdata_t &inputdata );
 	void	InputTurnOff( inputdata_t &inputdata );
+	void InputBeginCinematicHold( inputdata_t &inputdata ) { m_bCinematicHold = true; }
+	void InputEndCinematicHold( inputdata_t &inputdata ) { m_bCinematicHold = false; }
+	bool IsCinematicHeld() const { return m_bCinematicHold; }
 
 	// Locals
 	void	ResetUseKey( CBasePlayer *pPlayer );
@@ -292,7 +295,8 @@ public:
 
 protected:
 	// Entering / Exiting
-	bool		m_bEngineLocked;	// Mapmaker override on whether the vehicle's allowed to be turned on/off
+	bool		m_bEngineLocked;
+	bool m_bCinematicHold;	// Mapmaker override on whether the vehicle's allowed to be turned on/off
 	bool		m_bLocked;
 	float		m_flMinimumSpeedToEnterExit;
 	CNetworkVar( bool, m_bEnterAnimOn );

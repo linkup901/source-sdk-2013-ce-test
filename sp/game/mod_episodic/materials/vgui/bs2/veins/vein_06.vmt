@@ -1,0 +1,11 @@
+"UnlitGeneric"
+{
+	"$basetexture" "bs2/veins/vein_06"
+	"$translucent" "1"
+	"$vertexcolor" "1"
+	"$vertexalpha" "1"
+	"$ignorez" "1"
+	"$nocull" "1"
+	"$nolod" "1"
+	"$nofog" "1"
+}
