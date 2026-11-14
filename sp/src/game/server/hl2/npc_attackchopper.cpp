@@ -802,10 +802,10 @@ LINK_ENTITY_TO_CLASS( npc_helicopter, CNPC_AttackHelicopter );
 //-----------------------------------------------------------------------------
 // BS2: heli_black -- identical to npc_helicopter (same AI, keyvalues, inputs/outputs,
 // spawnflags) but uses the black reskin of the gameplay chopper model.
-// Keyvalue "stripe": 0 = red stripe (default), 1 = white stripe.
+// Keyvalue "stripe": 0 = white stripe (default, Isa's pick), 1 = red stripe.
 //-----------------------------------------------------------------------------
-#define HELI_BLACK_MODEL_RED	"models/bs2/heli_black.mdl"
-#define HELI_BLACK_MODEL_WHITE	"models/bs2/heli_black_ws.mdl"
+#define HELI_BLACK_MODEL_WHITE	"models/bs2/heli_black.mdl"
+#define HELI_BLACK_MODEL_RED	"models/bs2/heli_black_red.mdl"
 
 class CNPC_HeliBlack : public CNPC_AttackHelicopter
 {
@@ -813,7 +813,7 @@ public:
 	DECLARE_CLASS( CNPC_HeliBlack, CNPC_AttackHelicopter );
 	DECLARE_DATADESC();
 	CNPC_HeliBlack() : m_nStripe( 0 ) {}
-	virtual const char *GetChopperModelName( void ) { return m_nStripe == 1 ? HELI_BLACK_MODEL_WHITE : HELI_BLACK_MODEL_RED; }
+	virtual const char *GetChopperModelName( void ) { return m_nStripe == 1 ? HELI_BLACK_MODEL_RED : HELI_BLACK_MODEL_WHITE; }
 private:
 	int m_nStripe;
 };
