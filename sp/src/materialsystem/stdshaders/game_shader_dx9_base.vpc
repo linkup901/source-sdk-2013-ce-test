@@ -60,6 +60,7 @@ $Project
         $File "bs2_river.cpp"
         $File "bs2_glass.cpp"
         $File "bs2_glassbrush.cpp"
+        $File "bs2_puddle.cpp"
 	}
 
 	$Folder	"Header Files"

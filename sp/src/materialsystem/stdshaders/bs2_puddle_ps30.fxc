@@ -1,0 +1,99 @@
+// BS2_Puddle pixel shader (SM3, Claude 14 Nov 2026): shallow rain puddle on a model (flat decal mesh).
+// $basetexture rgb = wet ground tint, alpha = water coverage (puddle shape, soft edge).
+// Schlick Fresnel env_cubemap reflection; normals perturbed in WORLD space by procedural rain-drop rings
+// (two jittered cell grids, each cell one expanding ring per cycle) and a gentle wind swell; damp dark rim
+// where coverage is low; highlights from up to 4 model lights; fog. Premultiplied alpha blend.
+// DYNAMIC: "PIXELFOGTYPE" "0..1"
+#include "common_ps_fxc.h"
+#include "common_vertexlitgeneric_dx9.h"
+samplerCUBE EnvSampler : register( s0 );
+sampler2D   BaseSampler: register( s2 );
+const float4 cEye      : register( c0 );  // xyz eye
+const float4 cFresnel  : register( c1 );  // F0, F90, power, reflect amount
+const float4 cSpec     : register( c2 );  // exponent, boost, ambient sheen, numLights
+const float4 cWater    : register( c3 );  // rgb water body colour, w darken (0..1)
+const float3 cAmbientCube[6] : register( c4 ); // c4..c9
+const float4 cEnvTint  : register( c10 ); // rgb envmap tint, w = 1 -> apply engine HDR env scale
+const float4 cRain     : register( c11 ); // x rain intensity 0..1, y 1/ripple cell size, z ripple time, w ripple strength
+const float4 cFogParams: register( c12 );
+const float4 cMisc     : register( c13 ); // x coverage scale, y edge where reflection starts, z wind strength, w has base texture
+const float4 cMisc2    : register( c14 ); // x wind time
+PixelShaderLightInfo cLightInfo[3] : register( c20 ); // c20..c25
+struct PS_INPUT
+{
+	float2 uv          : TEXCOORD0;
+	float3 worldPos    : TEXCOORD1;
+	float3 worldNormal : TEXCOORD2;
+	float4 atten       : TEXCOORD3;
+	float4 screen      : TEXCOORD4;
+};
+float Hash( float2 p ) { return frac( sin( dot( p, float2( 127.1, 311.7 ) ) ) * 43758.5453 ); }
+// one grid of rain-drop rings -> world-space normal offset (xy)
+float2 Rings( float2 p, float t, float intensity, float seed )
+{
+	float2 cell = floor( p );
+	float h1 = Hash( cell + seed ), h2 = Hash( cell + seed + 7.31 ), h3 = Hash( cell + seed + 3.17 );
+	float2 c = float2( h2, h3 ) * 0.4 - 0.2;                 // drop centre jitter inside the cell
+	float2 f = frac( p ) - 0.5 - c;
+	float r = length( f );
+	float life = frac( t * ( 0.7 + 0.6 * h2 ) + h1 );        // 0..1 per drop
+	float active = step( h3, intensity );                    // fewer drops when the rain is light
+	float d = r - life * 0.32;
+	float ring = sin( d * 55.0 ) * exp( -d * d * 900.0 ) * ( 1 - life ) * ( 1 - life ) * active;
+	return f / max( r, 0.0005 ) * ring;
+}
+float3 Highlight( float3 N, float3 V, float3 worldPos, int k, float atten )
+{
+	float3 L = PixelShaderGetLightVector( worldPos, cLightInfo, k );
+	float3 H = normalize( L + V );
+	return PixelShaderGetLightColor( cLightInfo, k ) * atten * pow( saturate( dot( N, H ) ), cSpec.x ) * saturate( dot( N, L ) );
+}
+float4 main( PS_INPUT i ) : COLOR
+{
+	float4 base = cMisc.w > 0 ? tex2D( BaseSampler, i.uv ) : float4( 1, 1, 1, 1 );
+	float cover = saturate( base.a * cMisc.x );
+	clip( cover - 0.004 );
+	float3 N0 = normalize( i.worldNormal );
+	float3 V = normalize( cEye.xyz - i.worldPos );
+
+	// ---- surface motion (world XY, so neighbouring puddles never repeat) ----
+	float2 p = i.worldPos.xy * cRain.y;
+	float2 n = 0;
+	if ( cRain.x > 0 )
+	{
+		n += Rings( p, cRain.z, cRain.x, 0.0 );
+		n += Rings( p * 1.37 + 11.3, cRain.z * 1.11 + 0.5, cRain.x, 19.7 );
+		n *= cRain.w;
+	}
+	float2 w = i.worldPos.xy * 0.045;
+	n += cMisc.z * 0.06 * float2( sin( dot( w, float2( 1.3, 0.7 ) ) * 6.0 + cMisc2.x * 1.1 ) + 0.5 * sin( dot( w, float2( -2.1, 1.7 ) ) * 7.0 + cMisc2.x * 1.7 ),
+	                               cos( dot( w, float2( -0.8, 1.2 ) ) * 5.0 + cMisc2.x * 0.9 ) + 0.5 * cos( dot( w, float2( 1.9, 2.3 ) ) * 8.0 + cMisc2.x * 1.3 ) );
+	float3 N = normalize( N0 + float3( n, 0 ) );
+
+	float NdV = saturate( dot( N, V ) );
+	float F = cFresnel.x + ( cFresnel.y - cFresnel.x ) * pow( 1 - NdV, cFresnel.z );
+	F = saturate( F * cFresnel.w );
+	float3 R = reflect( -V, N );
+	float envScale = lerp( 1.0, ENV_MAP_SCALE, cEnvTint.w );
+	float3 env = texCUBE( EnvSampler, R ).rgb * cEnvTint.rgb * envScale + PixelShaderAmbientLight( R, cAmbientCube ) * cSpec.z;
+
+	// water only where it is deep enough; the thin rim is just damp (darker, no mirror)
+	float water = smoothstep( cMisc.y, saturate( cMisc.y + 0.3 ), cover );
+	float3 spec = 0;
+	int k = ( int )cSpec.w;
+	if ( k > 0 ) spec += Highlight( N, V, i.worldPos, 0, i.atten.x );
+	if ( k > 1 ) spec += Highlight( N, V, i.worldPos, 1, i.atten.y );
+	if ( k > 2 ) spec += Highlight( N, V, i.worldPos, 2, i.atten.z );
+	if ( k > 3 ) spec += Highlight( N, V, i.worldPos, 3, i.atten.w );
+	spec *= cSpec.y * ( cSpec.x + 8 ) / 64.0;
+
+	float3 body = cWater.rgb * base.rgb * PixelShaderAmbientLight( N0, cAmbientCube );
+	float darken = cover * cWater.w;                          // how much of the ground below is hidden
+	float3 src = ( env * F + spec * F ) * water + body * darken;
+	float alpha = saturate( darken + F * water );
+	float4 result = float4( src, alpha );                      // premultiplied: dest * (1 - a) + src
+	float fog = CalcPixelFogFactor( PIXELFOGTYPE, cFogParams, cEye.z, i.worldPos.z, i.screen.z );
+	result = FinalOutput( result, 0, PIXEL_FOG_TYPE_NONE, TONEMAP_SCALE_LINEAR );
+	result.rgb = lerp( result.rgb, g_LinearFogColor.rgb * result.a, fog );
+	return result;
+}
