@@ -1,0 +1,84 @@
+// BS2_GlassBrush pixel shader (SM3): lightmapped window/vitrine glass.
+// Fresnel cubemap reflection, lightmap sheen, highlight from $lightdir, optional dirt/frost base
+// texture (alpha = coverage), tint/absorption, framebuffer refraction with frost blur, fog.
+// DYNAMIC: "PIXELFOGTYPE" "0..1"
+#include "common_ps_fxc.h"
+samplerCUBE EnvSampler : register( s0 );
+sampler2D   FBSampler  : register( s1 );
+sampler2D   BaseSampler: register( s2 );
+sampler2D   LMSampler  : register( s3 );
+const float4 cEye      : register( c0 );  // xyz eye
+const float4 cFresnel  : register( c1 );  // F0, F90, power, reflect amount
+const float4 cSpec     : register( c2 );  // exponent, boost, lightmap sheen, has base texture
+const float4 cTint     : register( c3 );  // rgb tint, absorption
+const float4 cLightDir : register( c4 );  // xyz world dir TO light, w enabled
+const float4 cLightCol : register( c5 );  // rgb light color, w frost radius (screen UV)
+const float4 cEnvTint  : register( c10 ); // rgb, w = apply HDR env scale
+const float4 cFogParams: register( c12 );
+const float4 cRefract  : register( c13 ); // x amount, y enabled, z base opacity scale
+struct PS_INPUT
+{
+	float4 uv          : TEXCOORD0;
+	float3 worldPos    : TEXCOORD1;
+	float3 worldNormal : TEXCOORD2;
+	float4 screen      : TEXCOORD4;
+};
+float4 main( PS_INPUT i ) : COLOR
+{
+	float3 N = normalize( i.worldNormal );
+	float3 V = normalize( cEye.xyz - i.worldPos );
+	if ( dot( N, V ) < 0 ) N = -N;
+	float NdV = saturate( dot( N, V ) );
+	float F = saturate( ( cFresnel.x + ( cFresnel.y - cFresnel.x ) * pow( 1 - NdV, cFresnel.z ) ) * cFresnel.w );
+
+	float3 lm = tex2D( LMSampler, i.uv.zw ).rgb; // raw, as LightmappedGeneric (no LIGHT_MAP_SCALE)
+	float3 R = reflect( -V, N );
+	float3 env = texCUBE( EnvSampler, R ).rgb * cEnvTint.rgb * lerp( 1.0, ENV_MAP_SCALE, cEnvTint.w );
+	env += lm * cSpec.z;
+	float3 refl = env * F;
+
+	float3 spec = 0;
+	if ( cLightDir.w > 0 )
+	{
+		float3 L = normalize( cLightDir.xyz );
+		float3 H = normalize( L + V );
+		spec = cLightCol.rgb * pow( saturate( dot( N, H ) ), cSpec.x ) * saturate( dot( N, L ) * 4 )
+			* cSpec.y * ( cSpec.x + 8 ) / 64.0;
+	}
+
+	float4 base = cSpec.w > 0 ? tex2D( BaseSampler, i.uv.xy ) : float4( 0, 0, 0, 0 );
+	float cover = saturate( base.a * cRefract.z );
+	float3 dirt = base.rgb * lm;
+
+	float transmit = ( 1 - F ) * ( 1 - cTint.w ) * ( 1 - cover );
+	float4 result;
+	if ( cRefract.y > 0 )
+	{
+		float2 suv = i.screen.xy / i.screen.w * float2( 0.5, -0.5 ) + 0.5;
+		float2 offs = ( N - V * NdV ).xy * cRefract.x + ( base.rg - 0.5 ) * cRefract.x * cSpec.w;
+		float r = cLightCol.w;
+		float3 bg = tex2D( FBSampler, saturate( suv + offs ) ).rgb;
+		if ( r > 0 )
+		{
+			bg += tex2D( FBSampler, saturate( suv + offs + float2(  r, 0 ) ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2( -r, 0 ) ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2( 0,  r ) ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2( 0, -r ) ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2(  r,  r ) * 0.7 ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2( -r,  r ) * 0.7 ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2(  r, -r ) * 0.7 ) ).rgb;
+			bg += tex2D( FBSampler, saturate( suv + offs + float2( -r, -r ) * 0.7 ) ).rgb;
+			bg /= 9;
+		}
+		bg /= max( LINEAR_LIGHT_SCALE, 0.0001 );
+		result = float4( ( refl + spec ) * ( 1 - cover ) + dirt * cover + bg * cTint.rgb * transmit, 1 );
+	}
+	else
+	{
+		result = float4( ( refl + spec ) * ( 1 - cover ) + dirt * cover, saturate( 1 - transmit ) );
+	}
+	float fog = CalcPixelFogFactor( PIXELFOGTYPE, cFogParams, cEye.z, i.worldPos.z, i.screen.z );
+	result = FinalOutput( result, 0, PIXEL_FOG_TYPE_NONE, TONEMAP_SCALE_LINEAR );
+	result.rgb = lerp( result.rgb, g_LinearFogColor.rgb * result.a, fog );
+	return result;
+}

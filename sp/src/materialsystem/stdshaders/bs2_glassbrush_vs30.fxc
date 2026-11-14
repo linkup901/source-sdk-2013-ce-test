@@ -1,0 +1,28 @@
+// BS2_GlassBrush vertex shader (SM3): world brushes, base UV + lightmap UV.
+#include "common_vs_fxc.h"
+struct VS_INPUT
+{
+	float4 vPos       : POSITION;
+	float4 vNormal    : NORMAL;
+	float2 vBaseUV    : TEXCOORD0;
+	float2 vLightmapUV: TEXCOORD1;
+};
+struct VS_OUTPUT
+{
+	float4 projPos     : POSITION;
+	float4 uv          : TEXCOORD0; // xy base, zw lightmap
+	float3 worldPos    : TEXCOORD1;
+	float3 worldNormal : TEXCOORD2;
+	float4 screen      : TEXCOORD4;
+};
+VS_OUTPUT main( const VS_INPUT v )
+{
+	VS_OUTPUT o = ( VS_OUTPUT )0;
+	float3 worldPos = mul4x3( v.vPos, cModel[0] );
+	o.projPos = mul( float4( worldPos, 1 ), cViewProj );
+	o.uv = float4( v.vBaseUV, v.vLightmapUV );
+	o.worldPos = worldPos;
+	o.worldNormal = normalize( mul3x3( v.vNormal.xyz, ( const float3x3 )cModel[0] ) );
+	o.screen = o.projPos;
+	return o;
+}
