@@ -20,6 +20,7 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 		SHADER_PARAM( GLASSTINT, SHADER_PARAM_TYPE_COLOR, "[1 1 1]", "Transmission tint (refraction mode)" )
 		SHADER_PARAM( ABSORPTION, SHADER_PARAM_TYPE_FLOAT, "0.0", "0 = clear, 1 = nothing shows through" )
 		SHADER_PARAM( REFRACTAMOUNT, SHADER_PARAM_TYPE_FLOAT, "0.0", ">0 = framebuffer refraction (thick glass), screen-UV offset" )
+		SHADER_PARAM( BASEOPACITY, SHADER_PARAM_TYPE_FLOAT, "1.0", "Scales $basetexture alpha (dirt/soot coverage)" )
 		SHADER_PARAM( GLASSPRESET, SHADER_PARAM_TYPE_INTEGER, "0", "0 = default, 1 = sharp highlights, 2 = glossy mirror sheen (only fills params you did not set)" )
 		SHADER_PARAM( ENVMAPLDR, SHADER_PARAM_TYPE_INTEGER, "-1", "-1 auto, 1 = cubemap is LDR (skip HDR env scale), 0 = HDR" )
 	END_SHADER_PARAMS
@@ -56,6 +57,7 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 		if ( !params[ABSORPTION]->IsDefined() ) params[ABSORPTION]->SetFloatValue( 0.0f );
 		if ( !params[REFRACTAMOUNT]->IsDefined() ) params[REFRACTAMOUNT]->SetFloatValue( 0.0f );
 		if ( !params[ENVMAPLDR]->IsDefined() ) params[ENVMAPLDR]->SetIntValue( -1 );
+		if ( !params[BASEOPACITY]->IsDefined() ) params[BASEOPACITY]->SetFloatValue( 1.0f );
 		if ( params[REFRACTAMOUNT]->GetFloatValue() > 0.0f )
 			SET_FLAGS2( MATERIAL_VAR2_NEEDS_POWER_OF_TWO_FRAME_BUFFER_TEXTURE );
 	}
@@ -65,7 +67,7 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 		if ( !g_pHardwareConfig->SupportsShaderModel_3_0() )
 		{
 			// Same look as the stock stopgap: black base, additive cubemap.
-			params[BASETEXTURE]->SetStringValue( "black" );
+			if ( !params[BASETEXTURE]->IsDefined() ) params[BASETEXTURE]->SetStringValue( "black" );
 			SET_FLAGS( MATERIAL_VAR_ADDITIVE );
 			return "VertexLitGeneric";
 		}
@@ -74,6 +76,7 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 
 	SHADER_INIT
 	{
+		if ( params[BASETEXTURE]->IsDefined() ) LoadTexture( BASETEXTURE, TEXTUREFLAGS_SRGB );
 		if ( params[ENVMAP]->IsDefined() )
 			LoadCubeMap( ENVMAP, g_pHardwareConfig->GetHDRType() == HDR_TYPE_NONE ? TEXTUREFLAGS_SRGB : 0 );
 	}
@@ -110,6 +113,8 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER0, !bHDROn || EnvIsLDR( params ) );
 			pShaderShadow->EnableTexture( SHADER_SAMPLER1, true );
 			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER1, false );
+			pShaderShadow->EnableTexture( SHADER_SAMPLER2, true );
+			pShaderShadow->EnableSRGBRead( SHADER_SAMPLER2, true );
 			pShaderShadow->SetVertexShader( "bs2_glass_vs30", 0 );
 			pShaderShadow->SetPixelShader( "bs2_glass_ps30", 0 );
 			pShaderShadow->EnableAlphaToCoverage( false );
@@ -122,6 +127,9 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 			if ( bRefract ) pShaderAPI->BindStandardTexture( SHADER_SAMPLER1, TEXTURE_FRAME_BUFFER_FULL_TEXTURE_0 );
 			else pShaderAPI->BindStandardTexture( SHADER_SAMPLER1, TEXTURE_BLACK );
 
+			bool bBase = params[BASETEXTURE]->IsTexture();
+			if ( bBase ) BindTexture( SHADER_SAMPLER2, BASETEXTURE, FRAME );
+			else pShaderAPI->BindStandardTexture( SHADER_SAMPLER2, TEXTURE_BLACK );
 			LightState_t lightState = { 0, false, false };
 			pShaderAPI->GetDX9LightState( &lightState );
 			pShaderAPI->SetPixelShaderStateAmbientLightCube( 4 );
@@ -139,7 +147,7 @@ BEGIN_VS_SHADER( BS2_Glass, "BS2 pristine glass (models, SM3)" )
 			pShaderAPI->SetPixelShaderConstant( 3, tint );
 			float env[4] = { 1, 1, 1, 1 }; params[ENVMAPTINT]->GetVecValue( env, 3 ); env[3] = EnvIsLDR( params ) ? 0.0f : 1.0f;
 			pShaderAPI->SetPixelShaderConstant( 10, env );
-			float refr[4] = { params[REFRACTAMOUNT]->GetFloatValue(), bRefract ? 1.0f : 0.0f, 0, 0 };
+			float refr[4] = { params[REFRACTAMOUNT]->GetFloatValue(), bRefract ? 1.0f : 0.0f, params[BASEOPACITY]->GetFloatValue(), bBase ? 1.0f : 0.0f };
 			pShaderAPI->SetPixelShaderConstant( 13, refr );
 
 			int skin = pShaderAPI->GetCurrentNumBones() > 0 ? 1 : 0;

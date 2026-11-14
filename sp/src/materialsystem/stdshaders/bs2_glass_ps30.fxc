@@ -5,6 +5,7 @@
 #include "common_vertexlitgeneric_dx9.h"
 samplerCUBE EnvSampler : register( s0 );
 sampler2D   FBSampler  : register( s1 );
+sampler2D   BaseSampler: register( s2 );
 const float4 cEye      : register( c0 );  // xyz eye
 const float4 cFresnel  : register( c1 );  // F0, F90, power, reflect amount
 const float4 cSpec     : register( c2 );  // exponent, boost, ambient sheen, numLights
@@ -12,7 +13,7 @@ const float4 cTint     : register( c3 );  // rgb tint, absorption
 const float3 cAmbientCube[6] : register( c4 ); // c4..c9
 const float4 cEnvTint  : register( c10 ); // rgb envmap tint, w = 1 -> apply engine HDR env scale
 const float4 cFogParams: register( c12 );
-const float4 cRefract  : register( c13 ); // x amount, y enabled
+const float4 cRefract  : register( c13 ); // x amount, y enabled, z base opacity scale, w has base texture
 PixelShaderLightInfo cLightInfo[3] : register( c20 ); // c20..c25
 struct PS_INPUT
 {
@@ -22,6 +23,11 @@ struct PS_INPUT
 	float4 atten       : TEXCOORD3;
 	float4 screen      : TEXCOORD4;
 };
+float3 Diffuse( float3 N, float3 worldPos, int k, float atten )
+{
+	float3 L = PixelShaderGetLightVector( worldPos, cLightInfo, k );
+	return PixelShaderGetLightColor( cLightInfo, k ) * atten * saturate( dot( N, L ) );
+}
 float3 Highlight( float3 N, float3 V, float3 worldPos, int k, float atten )
 {
 	float3 L = PixelShaderGetLightVector( worldPos, cLightInfo, k );
@@ -53,19 +59,33 @@ float4 main( PS_INPUT i ) : COLOR
 	// energy-ish normalisation so a higher exponent gives a smaller, hotter point
 	spec *= cSpec.y * ( cSpec.x + 8 ) / 64.0 * lerp( 0.25, 1.0, F / max( cFresnel.y, 0.001 ) + 0.25 );
 
-	float transmit = ( 1 - F ) * ( 1 - cTint.w );
+	// optional dirt/soot layer: base texture alpha = coverage, lit by ambient cube + lights
+	float cover = 0; float3 dirt = 0;
+	if ( cRefract.w > 0 )
+	{
+		float4 base = tex2D( BaseSampler, i.uv );
+		cover = saturate( base.a * cRefract.z );
+		float3 diff = PixelShaderAmbientLight( N, cAmbientCube );
+		if ( n > 0 ) diff += Diffuse( N, i.worldPos, 0, i.atten.x );
+		if ( n > 1 ) diff += Diffuse( N, i.worldPos, 1, i.atten.y );
+		if ( n > 2 ) diff += Diffuse( N, i.worldPos, 2, i.atten.z );
+		if ( n > 3 ) diff += Diffuse( N, i.worldPos, 3, i.atten.w );
+		dirt = base.rgb * diff;
+		refl *= 1 - cover; spec *= 1 - cover;
+	}
+	float transmit = ( 1 - F ) * ( 1 - cTint.w ) * ( 1 - cover );
 	float4 result;
 	if ( cRefract.y > 0 )
 	{
 		float2 suv = i.screen.xy / i.screen.w * float2( 0.5, -0.5 ) + 0.5;
 		float2 offs = ( N - V * NdV ).xy * cRefract.x;
 		float3 bg = tex2D( FBSampler, saturate( suv + offs ) ).rgb / max( LINEAR_LIGHT_SCALE, 0.0001 );
-		result = float4( refl + spec + bg * cTint.rgb * transmit, 1 );
+		result = float4( refl + spec + dirt * cover + bg * cTint.rgb * transmit, 1 );
 	}
 	else
 	{
 		// premultiplied: dest * (1 - alpha) + src
-		result = float4( refl + spec, saturate( 1 - transmit ) );
+		result = float4( refl + spec + dirt * cover, saturate( 1 - transmit ) );
 	}
 	float fog = CalcPixelFogFactor( PIXELFOGTYPE, cFogParams, cEye.z, i.worldPos.z, i.screen.z );
 	result = FinalOutput( result, 0, PIXEL_FOG_TYPE_NONE, TONEMAP_SCALE_LINEAR );

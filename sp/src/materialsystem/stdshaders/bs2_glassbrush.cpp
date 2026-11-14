@@ -42,8 +42,8 @@ BEGIN_VS_SHADER( BS2_GlassBrush, "BS2 lightmapped glass (brushes, SM3)" )
 		{
 			if ( !params[FRESNELMIN]->IsDefined() ) params[FRESNELMIN]->SetFloatValue( 0.10f );
 			if ( !params[FRESNELPOWER]->IsDefined() ) params[FRESNELPOWER]->SetFloatValue( 3.0f );
-			if ( !params[REFLECTAMOUNT]->IsDefined() ) params[REFLECTAMOUNT]->SetFloatValue( 1.6f );
-			if ( !params[LIGHTMAPSHEEN]->IsDefined() ) params[LIGHTMAPSHEEN]->SetFloatValue( 0.8f );
+			if ( !params[REFLECTAMOUNT]->IsDefined() ) params[REFLECTAMOUNT]->SetFloatValue( 1.25f );
+			if ( !params[LIGHTMAPSHEEN]->IsDefined() ) params[LIGHTMAPSHEEN]->SetFloatValue( 0.2f );
 			if ( !params[SPECBOOST]->IsDefined() ) params[SPECBOOST]->SetFloatValue( 2.5f );
 		}
 		if ( !params[ENVMAP]->IsDefined() ) params[ENVMAP]->SetStringValue( "env_cubemap" );
