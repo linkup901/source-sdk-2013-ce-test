@@ -390,6 +390,8 @@ public:
 	virtual void	Spawn( void );
 	virtual void	Activate( void );
 	virtual bool	CreateComponents();
+	// BS2: model used for the normal (non-drone) chopper; heli_black overrides it.
+	virtual const char *GetChopperModelName( void ) { return CHOPPER_MODEL_NAME; }
 	virtual int		ObjectCaps();
 
 #ifdef HL2_EPISODIC
@@ -797,6 +799,31 @@ static const char *pFollowerBoneNames[] =
 
 LINK_ENTITY_TO_CLASS( npc_helicopter, CNPC_AttackHelicopter );
 
+//-----------------------------------------------------------------------------
+// BS2: heli_black -- identical to npc_helicopter (same AI, keyvalues, inputs/outputs,
+// spawnflags) but uses the black reskin of the gameplay chopper model.
+// Keyvalue "stripe": 0 = red stripe (default), 1 = white stripe.
+//-----------------------------------------------------------------------------
+#define HELI_BLACK_MODEL_RED	"models/bs2/heli_black.mdl"
+#define HELI_BLACK_MODEL_WHITE	"models/bs2/heli_black_ws.mdl"
+
+class CNPC_HeliBlack : public CNPC_AttackHelicopter
+{
+public:
+	DECLARE_CLASS( CNPC_HeliBlack, CNPC_AttackHelicopter );
+	DECLARE_DATADESC();
+	CNPC_HeliBlack() : m_nStripe( 0 ) {}
+	virtual const char *GetChopperModelName( void ) { return m_nStripe == 1 ? HELI_BLACK_MODEL_WHITE : HELI_BLACK_MODEL_RED; }
+private:
+	int m_nStripe;
+};
+
+LINK_ENTITY_TO_CLASS( heli_black, CNPC_HeliBlack );
+
+BEGIN_DATADESC( CNPC_HeliBlack )
+	DEFINE_KEYFIELD( m_nStripe, FIELD_INTEGER, "stripe" ),
+END_DATADESC()
+
 BEGIN_DATADESC( CNPC_AttackHelicopter )
 	DEFINE_FIELD( m_bCinematic, FIELD_BOOLEAN ),
 	DEFINE_KEYFIELD( m_bCinematicAssets, FIELD_BOOLEAN, "cinematicassets" ),
@@ -989,7 +1016,7 @@ void CNPC_AttackHelicopter::Precache( void )
 
 	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) )
 	{
-		PrecacheModel( m_iszCinematicModel != NULL_STRING ? STRING(m_iszCinematicModel) : CHOPPER_MODEL_NAME );
+		PrecacheModel( m_iszCinematicModel != NULL_STRING ? STRING(m_iszCinematicModel) : GetChopperModelName() );
 	}
 	else
 	{
@@ -1090,7 +1117,7 @@ void CNPC_AttackHelicopter::Spawn( void )
 
 	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) )
 	{
-		SetModel( m_iszCinematicModel != NULL_STRING ? STRING(m_iszCinematicModel) : CHOPPER_MODEL_NAME );
+		SetModel( m_iszCinematicModel != NULL_STRING ? STRING(m_iszCinematicModel) : GetChopperModelName() );
 	}
 	else
 	{
@@ -5561,7 +5588,7 @@ void CGrenadeHelicopter::ExplodeConcussion( CBaseEntity *pOther )
 	{
 		pEntityHit = pEntityHit->GetOwnerEntity();
 	}
-	if ( ( CLASS_COMBINE_GUNSHIP != pEntityHit->Classify() ) || !pEntityHit->ClassMatches( "npc_helicopter" ) )
+	if ( ( CLASS_COMBINE_GUNSHIP != pEntityHit->Classify() ) || ( !pEntityHit->ClassMatches( "npc_helicopter" ) && !pEntityHit->ClassMatches( "heli_black" ) ) )
 	{
 		// We hit something other than a helicopter.  If the player threw us, send a miss event
 		if ( IsThrownByPlayer() )
