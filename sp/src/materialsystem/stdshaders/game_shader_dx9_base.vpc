@@ -58,6 +58,7 @@ $Project
 		$File	"screenspace_general.cpp"
 		$File "bs2_terrain4.cpp"
         $File "bs2_river.cpp"
+        $File "bs2_glass.cpp"
 	}
 
 	$Folder	"Header Files"

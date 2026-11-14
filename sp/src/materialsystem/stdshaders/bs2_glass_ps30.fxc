@@ -1,0 +1,74 @@
+// BS2_Glass pixel shader (SM3): Schlick Fresnel cubemap reflection, sharp per-pixel highlights
+// from the model's dynamic lights + ambient cube, optional tint/absorption and framebuffer refraction, fog.
+// DYNAMIC: "PIXELFOGTYPE" "0..1"
+#include "common_ps_fxc.h"
+#include "common_vertexlitgeneric_dx9.h"
+samplerCUBE EnvSampler : register( s0 );
+sampler2D   FBSampler  : register( s1 );
+const float4 cEye      : register( c0 );  // xyz eye
+const float4 cFresnel  : register( c1 );  // F0, F90, power, reflect amount
+const float4 cSpec     : register( c2 );  // exponent, boost, ambient sheen, numLights
+const float4 cTint     : register( c3 );  // rgb tint, absorption
+const float3 cAmbientCube[6] : register( c4 ); // c4..c9
+const float4 cEnvTint  : register( c10 ); // rgb envmap tint, w = 1 -> apply engine HDR env scale
+const float4 cFogParams: register( c12 );
+const float4 cRefract  : register( c13 ); // x amount, y enabled
+PixelShaderLightInfo cLightInfo[3] : register( c20 ); // c20..c25
+struct PS_INPUT
+{
+	float2 uv          : TEXCOORD0;
+	float3 worldPos    : TEXCOORD1;
+	float3 worldNormal : TEXCOORD2;
+	float4 atten       : TEXCOORD3;
+	float4 screen      : TEXCOORD4;
+};
+float3 Highlight( float3 N, float3 V, float3 worldPos, int k, float atten )
+{
+	float3 L = PixelShaderGetLightVector( worldPos, cLightInfo, k );
+	float3 H = normalize( L + V );
+	float NdL = saturate( dot( N, L ) );
+	return PixelShaderGetLightColor( cLightInfo, k ) * atten * pow( saturate( dot( N, H ) ), cSpec.x ) * NdL;
+}
+float4 main( PS_INPUT i ) : COLOR
+{
+	float3 N = normalize( i.worldNormal );
+	float3 V = normalize( cEye.xyz - i.worldPos );
+	if ( dot( N, V ) < 0 ) N = -N; // two-sided: inner faces of a crystal
+	float NdV = saturate( dot( N, V ) );
+	float F = cFresnel.x + ( cFresnel.y - cFresnel.x ) * pow( 1 - NdV, cFresnel.z );
+	F = saturate( F * cFresnel.w );
+
+	float3 R = reflect( -V, N );
+	float envScale = lerp( 1.0, ENV_MAP_SCALE, cEnvTint.w );
+	float3 env = texCUBE( EnvSampler, R ).rgb * cEnvTint.rgb * envScale;
+	env += PixelShaderAmbientLight( R, cAmbientCube ) * cSpec.z;
+	float3 refl = env * F;
+
+	float3 spec = 0;
+	int n = ( int )cSpec.w;
+	if ( n > 0 ) spec += Highlight( N, V, i.worldPos, 0, i.atten.x );
+	if ( n > 1 ) spec += Highlight( N, V, i.worldPos, 1, i.atten.y );
+	if ( n > 2 ) spec += Highlight( N, V, i.worldPos, 2, i.atten.z );
+	if ( n > 3 ) spec += Highlight( N, V, i.worldPos, 3, i.atten.w );
+	// energy-ish normalisation so a higher exponent gives a smaller, hotter point
+	spec *= cSpec.y * ( cSpec.x + 8 ) / 64.0 * lerp( 0.25, 1.0, F / max( cFresnel.y, 0.001 ) + 0.25 );
+
+	float transmit = ( 1 - F ) * ( 1 - cTint.w );
+	float4 result;
+	if ( cRefract.y > 0 )
+	{
+		float2 suv = i.screen.xy / i.screen.w * float2( 0.5, -0.5 ) + 0.5;
+		float2 offs = ( N - V * NdV ).xy * cRefract.x;
+		float3 bg = tex2D( FBSampler, saturate( suv + offs ) ).rgb / max( LINEAR_LIGHT_SCALE, 0.0001 );
+		result = float4( refl + spec + bg * cTint.rgb * transmit, 1 );
+	}
+	else
+	{
+		// premultiplied: dest * (1 - alpha) + src
+		result = float4( refl + spec, saturate( 1 - transmit ) );
+	}
+	float fog = CalcPixelFogFactor( PIXELFOGTYPE, cFogParams, cEye.z, i.worldPos.z, i.screen.z );
+	result = FinalOutput( result, 0, PIXEL_FOG_TYPE_NONE, TONEMAP_SCALE_LINEAR );
+	result.rgb = lerp( result.rgb, g_LinearFogColor.rgb * result.a, fog );
+	return result;
+}
