@@ -1,11 +1,11 @@
-# Builds bs2_ssao_ps20b.vcs (copy of tools\tiltshift\build_shader.ps1 with the shader name changed). Claude for Isa, 15 Nov 2026.
-param([Parameter(Mandatory=$true)][string]$SdkBin, [Parameter(Mandatory=$true)][string]$Worktree)
+# Builds the BS2 SSAO shaders (bs2_ssao_ps20b, bs2_ssao_blur_ps20b). Claude for Isa, 15 Nov 2026.
+param([Parameter(Mandatory=$true)][string]$SdkBin, [Parameter(Mandatory=$true)][string]$Worktree, [string[]]$Names = @('bs2_ssao_ps20b','bs2_ssao_blur_ps20b'))
 $ErrorActionPreference = 'Stop'
-$name = 'bs2_ssao_ps20b'
 $GameDir = (Resolve-Path -LiteralPath "$Worktree\sp\game\mod_episodic").Path
 $compiler = Join-Path $SdkBin 'shadercompile.exe'
 if (!(Test-Path -LiteralPath $compiler)) { throw "Missing $compiler" }
-$stage = Join-Path $Worktree 'tools\ssao\shader-build'
+foreach ($name in $Names) {
+$stage = Join-Path $Worktree "tools\ssao\shader-build\$name"
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'shaders\fxc') | Out-Null
 Copy-Item -LiteralPath "$Worktree\sp\src\materialsystem\stdshaders\$name.fxc" -Destination $stage
 Copy-Item -LiteralPath "$Worktree\sp\src\dx9sdk\utilities\dx_proxy.dll" -Destination $stage
@@ -29,7 +29,8 @@ $started = Get-Date
 Push-Location $stage
 try { & $compiler -nompi -nop4 -game $GameDir -shaderpath $stage -allowdebug; if ($LASTEXITCODE -ne 0) { throw "shadercompile failed: $LASTEXITCODE" } } finally { Pop-Location }
 $compiled = Join-Path $stage "shaders\fxc\$name.vcs"
-if (!(Test-Path -LiteralPath $compiled) -or (Get-Item -LiteralPath $compiled).LastWriteTime -lt $started) { throw 'No fresh VCS; see shader-build\output.txt' }
+if (!(Test-Path -LiteralPath $compiled) -or (Get-Item -LiteralPath $compiled).LastWriteTime -lt $started) { throw "No fresh VCS for $name; see $stage\output.txt" }
 New-Item -ItemType Directory -Force -Path "$GameDir\shaders\fxc" | Out-Null
 Copy-Item -LiteralPath $compiled -Destination "$GameDir\shaders\fxc"
 Write-Output "Compiled $name.vcs"
+}

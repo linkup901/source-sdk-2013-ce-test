@@ -1,0 +1,40 @@
+// BS2 one-bounce screen-space indirect light (SEPPMA Phase 3, residual GI prototype).
+// s0 scene snapshot (_rt_FullFrameFB), s1 linear depth/far. For 8 rotated disk taps, nearby surfaces that face the
+// pixel (close in depth, within radius) bounce their lit colour onto it. Output: RGB bounce colour, half resolution.
+sampler2D Scene : register(s0);
+sampler2D Depth : register(s1);
+float4 P0 : register(c0); // invW, invH (depth texture), unused, radius (units)
+float4 P1 : register(c1); // far plane, tan(halfFovX), tan(halfFovY), unused
+float4 P2 : register(c2); // max distance, unused, unused, output scale
+
+float4 main(float2 uv : TEXCOORD0) : COLOR0
+{
+    float d = tex2D(Depth, uv).r;
+    float notSky = step(d, 0.999);
+    float z = max(d * P1.x, 1.0);
+    float2 r = P0.w / (2.0 * z * P1.yz);
+    r = min(r, float2(0.15, 0.15));
+    float2 cell = fmod(floor(uv / (P0.xy * max(P2.w, 1.0))), 4.0);
+    float idx = cell.y * 4.0 + cell.x;
+    float a = 6.2831853 * (frac(idx * 0.3125) + 0.03125);
+    float s, c; sincos(a, s, c);
+    float2x2 rot = float2x2(c, -s, s, c);
+    float3 sum = 0;
+    float wsum = 0.0001;
+    float2 dirs[8] = { float2(1,0), float2(0.707,0.707), float2(0,1), float2(-0.707,0.707),
+                       float2(-1,0), float2(-0.707,-0.707), float2(0,-1), float2(0.707,-0.707) };
+    float rad[8] = { 0.25, 0.45, 0.65, 0.85, 0.35, 0.55, 0.75, 1.0 };
+    for (int i = 0; i < 8; i++)
+    {
+        float2 tuv = uv + mul(rot, dirs[i]) * r * rad[i];
+        float zs = tex2D(Depth, tuv).r * P1.x;
+        // only surfaces near the pixel in 3D (|dz| within the radius) contribute; nearer-than-centre ones more (they face it)
+        float near = saturate(1.0 - abs(zs - z) / P0.w);
+        float facing = saturate(0.5 + (z - zs) / P0.w);
+        float w = near * facing;
+        sum += tex2D(Scene, tuv).rgb * w;
+        wsum += w;
+    }
+    float fade = saturate(1.0 - z / P2.x) * notSky;
+    return float4(sum / wsum * fade, 1);
+}

@@ -53,6 +53,8 @@ protected:
 
 	// BS2 SSAO: linear depth of the main view (SSAO_DepthPass)
 	CTextureReference		m_SSAODepthTexture;
+	CTextureReference		m_SSAOTexture;
+	CTextureReference		m_SSGITexture;		// BS2 SSGI: one-bounce colour		// BS2 SSAO: AO term + packed depth
 
 	// Used for the HUD in stereo and head tracking mode
 	CTextureReference		m_UITexture;
