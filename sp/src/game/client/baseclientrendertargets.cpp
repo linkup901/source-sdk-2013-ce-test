@@ -60,6 +60,10 @@ void CBaseClientRenderTargets::InitClientRenderTargets( IMaterialSystem* pMateri
 
 	// Monitors
 	m_CameraTexture.Init( CreateCameraTexture( pMaterialSystem, iCameraTextureSize ) );
+
+	// BS2 SSAO depth (Claude for Isa, 15 Nov 2026)
+	m_SSAODepthTexture.Init( pMaterialSystem->CreateNamedRenderTargetTextureEx2( "_rt_ResolvedFullFrameDepth", 1, 1, RT_SIZE_FULL_FRAME_BUFFER,
+		IMAGE_FORMAT_R32F, MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT | TEXTUREFLAGS_POINTSAMPLE, 0 ) );
 }
 
 //-----------------------------------------------------------------------------
@@ -75,4 +79,5 @@ void CBaseClientRenderTargets::ShutdownClientRenderTargets()
 
 	// Monitors
 	m_CameraTexture.Shutdown();
+	m_SSAODepthTexture.Shutdown();
 }

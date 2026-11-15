@@ -51,6 +51,9 @@ protected:
 	// Used for monitors
 	CTextureReference		m_CameraTexture;
 
+	// BS2 SSAO: linear depth of the main view (SSAO_DepthPass)
+	CTextureReference		m_SSAODepthTexture;
+
 	// Used for the HUD in stereo and head tracking mode
 	CTextureReference		m_UITexture;
 

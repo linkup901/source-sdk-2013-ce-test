@@ -1,0 +1,49 @@
+// BS2 SSAO prototype (SEPPMA Phase 3). screenspace_general: s0 scene (_rt_FullFrameFB), s1 linear depth/far (_rt_ResolvedFullFrameDepth).
+// Crease AO without normals: for each pair of opposite taps (s1,s2) the plane through them predicts 1/z = (1/s1+1/s2)/2
+// (1/z is linear in screen space), so concavity = z - harmonic_mean(s1,s2) is exactly 0 on any plane, >0 in creases/contact.
+sampler2D Scene : register(s0);
+sampler2D Depth : register(s1);
+float4 P0 : register(c0); // invW, invH, strength, radius (units)
+float4 P1 : register(c1); // far plane, tan(halfFovX), tan(halfFovY), falloff (units)
+float4 P2 : register(c2); // max distance, debug, -, -
+
+float LinZ(float2 uv) { return tex2D(Depth, uv).r * P1.x; }
+
+float Pair(float2 uv, float2 o, float z)
+{
+    float s1 = LinZ(uv + o);
+    float s2 = LinZ(uv - o);
+    float h = 2.0 / (1.0 / max(s1, 1.0) + 1.0 / max(s2, 1.0));     // harmonic mean = planar prediction
+    float conc = z - h;
+    // ignore pairs that jump across depth discontinuities (thin foreground objects, silhouettes)
+    float valid = step(abs(z - s1), 3.0 * P0.w) * step(abs(z - s2), 3.0 * P0.w);
+    return saturate(conc / P1.w) * valid;
+}
+
+float4 main(float2 uv : TEXCOORD0) : COLOR0
+{
+    float3 scene = tex2D(Scene, uv).rgb;
+    float d = tex2D(Depth, uv).r;
+    float notSky = step(d, 0.999);   // sky / cleared depth gets no AO (no early return in ps_2_b)
+    float z = max(d * P1.x, 1.0);
+    // world radius -> uv radius at this depth
+    float2 r = P0.w / (2.0 * z * P1.yz);
+    r = min(r, float2(0.08, 0.08));
+    // per-pixel rotation, interleaved gradient noise
+    float2 pix = uv / P0.xy;
+    float a = 6.2831853 * frac(52.9829189 * frac(dot(pix, float2(0.06711056, 0.00583715))));
+    float s, c; sincos(a, s, c);
+    float2x2 rot = float2x2(c, -s, s, c);
+    float occ = 0;
+    occ += Pair(uv, mul(rot, float2( 1.000,  0.000)) * r * 0.30, z);
+    occ += Pair(uv, mul(rot, float2( 0.500,  0.866)) * r * 0.45, z);
+    occ += Pair(uv, mul(rot, float2(-0.500,  0.866)) * r * 0.60, z);
+    occ += Pair(uv, mul(rot, float2( 0.866,  0.500)) * r * 0.75, z);
+    occ += Pair(uv, mul(rot, float2( 0.000,  1.000)) * r * 0.90, z);
+    occ += Pair(uv, mul(rot, float2(-0.866,  0.500)) * r * 1.00, z);
+    occ /= 6.0;
+    float fade = saturate(1.0 - z / P2.x) * notSky;
+    float ao = 1.0 - P0.z * occ * fade;
+    ao = saturate(ao);
+    return float4(lerp(scene * ao, ao.xxx, P2.y), 1);
+}
