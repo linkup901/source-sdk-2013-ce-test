@@ -450,6 +450,7 @@ $Project
 		$File	"bs2\bs2_breath.cpp"
 		$File	"bs2\bs2_breath.h"
 		$File	"bs2\env_bs2_veins.cpp"
+		$File	"bs2\logic_bs2_music_director.cpp"
 		$File	"mapentities.cpp"
 		$File	"$SRCDIR\game\shared\mapentities_shared.cpp"
 		$File	"maprules.cpp"
