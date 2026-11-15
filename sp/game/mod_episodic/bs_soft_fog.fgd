@@ -4,7 +4,7 @@
  fogcolor(color255) : "Fog color" : "105 125 145"
  density(float) : "Extinction per world unit" : 0.0006
  edgesoftness(float) : "Edge fade width in world units" : 256
- layers(integer) : "Depth slices (16-64)" : 48
+ layers(integer) : "Depth slices (16-64)" : 32
  noiseamount(float) : "Density variation (0-0.5)" : 0.15
  driftspeed(float) : "Slow drift units per second" : 4
  enabled(choices) : "Enabled" : 1 = [0 : "No" 1 : "Yes"]

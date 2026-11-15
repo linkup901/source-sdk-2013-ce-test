@@ -1,0 +1,35 @@
+BLACK STASIS 2 - credits
+(the in-game roll at the end of bs2_ending_station shows the short form of this list; written 2026-10-03, Phase 1.21)
+
+Maps, story and design
+    Isa - Linkup Maps / Subroutine Theory
+
+Game, engine and base content
+    Valve - Half-Life 2, Half-Life 2: Episode One, Half-Life 2: Episode Two, Source SDK 2013
+
+Sound effects
+    Sonniss.com - GDC Game Audio Bundles (2016, 2017, 2019, 2026), royalty-free under the Sonniss GDC bundle licence.
+        Per file: tools/test-logs/phase1-sound-sources.md
+    freesound.org CC0 field recordings (per file: sound/ambient/bs2/CREDITS.txt)
+
+Textures
+    ambientCG (ambientcg.com) - CC0
+    Poly Haven (polyhaven.com) - CC0
+    cgbookcase (cgbookcase.com) - CC0
+    ShareTextures (sharetextures.com) - CC0
+        Per material: materials/bs2/cc0/<pack>/sources.md
+
+Music
+    "SCP-x2x (Unseen Presence)", "The Escalation", "Lightless Dawn" - Kevin MacLeod (incompetech.com),
+        licensed under Creative Commons: By Attribution 4.0 - https://creativecommons.org/licenses/by/4.0/
+    "Creepy Forest (F)" - Augmentality (Brandon Morris), CC0, OpenGameArt
+    "Tragic ambient main menu" - OpenGameArt, CC0
+    "Mechanical Industrial Wavetable Drone" - mantice, Freesound, CC0
+    "Abandoned Basement Ambience" - Freesound, CC0
+    Other tracks and the main theme: see sound/bs2_music/MUSIC_CREDITS.txt. The theme is a placeholder until Phase 6;
+    the music tools used for the final theme get added here then.
+
+Tools
+    Hammer++, VBSP++ / VVIS++ / VRAD++, Propper++, Crowbar, Blender, VTFEdit, studiomdl, srctools, ffmpeg, Python, numpy
+
+Thank you for playing.

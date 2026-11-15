@@ -5,6 +5,7 @@
 //===========================================================================//
 
 #include "cbase.h"
+#include "vehicle_base.h"
 #include "ai_network.h"
 #include "ai_default.h"
 #include "ai_schedule.h"
@@ -364,11 +365,33 @@ public:
 
 	CNPC_AttackHelicopter();
 	~CNPC_AttackHelicopter();
+	virtual void HelicopterThink( void );
+	void InputStartCinematic( inputdata_t &inputdata );
+	void InputResumeFlight( inputdata_t &inputdata );
+	void ClearCinematicGunLayers();
+	bool m_bCinematic;
+	bool m_bCinematicAssets;
+	string_t m_iszCinematicModel;
+	int m_iCinematicGunLayer, m_nCinematicGunStage;
+	float m_flCinematicGunStart;
+	int m_nCinematicMoveType;
+	EHANDLE m_hCinematicNode;
+	float m_flCinematicStart;
+	Vector m_vecCinematicStart, m_vecCinematicVelocity;
+	QAngle m_angCinematicStart;
+	COutputEvent m_OnCinematicLanded, m_OnCinematicAborted;
+	void InputDeployCinematicGun(inputdata_t &data);
+	void InputCinematicBurstAt(inputdata_t &data);
+	void InputCinematicMegaBomb(inputdata_t &data);
+	EHANDLE m_hCinematicFireTarget;
+	float m_flCinematicFireEnd, m_flCinematicNextShot;
 
 	virtual void	Precache( void );
 	virtual void	Spawn( void );
 	virtual void	Activate( void );
 	virtual bool	CreateComponents();
+	// BS2: model used for the normal (non-drone) chopper; heli_black overrides it.
+	virtual const char *GetChopperModelName( void ) { return CHOPPER_MODEL_NAME; }
 	virtual int		ObjectCaps();
 
 #ifdef HL2_EPISODIC
@@ -776,7 +799,54 @@ static const char *pFollowerBoneNames[] =
 
 LINK_ENTITY_TO_CLASS( npc_helicopter, CNPC_AttackHelicopter );
 
+//-----------------------------------------------------------------------------
+// BS2: heli_black -- identical to npc_helicopter (same AI, keyvalues, inputs/outputs,
+// spawnflags) but uses the black reskin of the gameplay chopper model.
+// Keyvalue "stripe": 0 = white stripe (default, Isa's pick), 1 = red stripe.
+//-----------------------------------------------------------------------------
+#define HELI_BLACK_MODEL_WHITE	"models/bs2/heli_black.mdl"
+#define HELI_BLACK_MODEL_RED	"models/bs2/heli_black_red.mdl"
+
+class CNPC_HeliBlack : public CNPC_AttackHelicopter
+{
+public:
+	DECLARE_CLASS( CNPC_HeliBlack, CNPC_AttackHelicopter );
+	DECLARE_DATADESC();
+	CNPC_HeliBlack() : m_nStripe( 0 ) {}
+	virtual const char *GetChopperModelName( void ) { return m_nStripe == 1 ? HELI_BLACK_MODEL_RED : HELI_BLACK_MODEL_WHITE; }
+private:
+	int m_nStripe;
+};
+
+LINK_ENTITY_TO_CLASS( heli_black, CNPC_HeliBlack );
+
+BEGIN_DATADESC( CNPC_HeliBlack )
+	DEFINE_KEYFIELD( m_nStripe, FIELD_INTEGER, "stripe" ),
+END_DATADESC()
+
 BEGIN_DATADESC( CNPC_AttackHelicopter )
+	DEFINE_FIELD( m_bCinematic, FIELD_BOOLEAN ),
+	DEFINE_KEYFIELD( m_bCinematicAssets, FIELD_BOOLEAN, "cinematicassets" ),
+	DEFINE_KEYFIELD( m_iszCinematicModel, FIELD_STRING, "cinematicmodel" ),
+	DEFINE_FIELD( m_iCinematicGunLayer, FIELD_INTEGER ),
+	DEFINE_FIELD( m_nCinematicGunStage, FIELD_INTEGER ),
+	DEFINE_FIELD( m_flCinematicGunStart, FIELD_TIME ),
+	DEFINE_FIELD( m_nCinematicMoveType, FIELD_INTEGER ),
+	DEFINE_FIELD( m_hCinematicNode, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flCinematicStart, FIELD_TIME ),
+	DEFINE_FIELD( m_vecCinematicStart, FIELD_VECTOR ),
+	DEFINE_FIELD( m_vecCinematicVelocity, FIELD_VECTOR ),
+	DEFINE_FIELD( m_angCinematicStart, FIELD_VECTOR ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "StartCinematic", InputStartCinematic ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "ResumeFlight", InputResumeFlight ),
+	DEFINE_OUTPUT( m_OnCinematicLanded, "OnCinematicLanded" ),
+	DEFINE_OUTPUT( m_OnCinematicAborted, "OnCinematicAborted" ),
+	DEFINE_FIELD( m_hCinematicFireTarget, FIELD_EHANDLE ),
+	DEFINE_FIELD( m_flCinematicFireEnd, FIELD_TIME ),
+	DEFINE_FIELD( m_flCinematicNextShot, FIELD_TIME ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "DeployCinematicGun", InputDeployCinematicGun ),
+	DEFINE_INPUTFUNC( FIELD_STRING, "CinematicBurstAt", InputCinematicBurstAt ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "CinematicMegaBomb", InputCinematicMegaBomb ),
 
 	DEFINE_ENTITYFUNC( FlyTouch ),
 
@@ -893,7 +963,13 @@ CNPC_AttackHelicopter::CNPC_AttackHelicopter() :
 	m_bBombsExplodeOnContact( false )
 {
 	m_flMaxSpeed = 0;
+	m_bCinematic = false;
+	m_bCinematicAssets = false;
+	m_iszCinematicModel = NULL_STRING;
+	m_iCinematicGunLayer = -1; m_nCinematicGunStage = 0; m_flCinematicGunStart = 0;
 }
+
+#include "bs2_heli_cinematic.inc"
 
 CNPC_AttackHelicopter::~CNPC_AttackHelicopter(void)
 {
@@ -936,10 +1012,11 @@ void Chopper_PrecacheChunks( CBaseEntity *pChopper )
 void CNPC_AttackHelicopter::Precache( void )
 {
 	BaseClass::Precache();
+	if ( m_bCinematicAssets ) UTIL_PrecacheOther( "grenade_helicopter" );
 
 	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) )
 	{
-		PrecacheModel( CHOPPER_MODEL_NAME );
+		PrecacheModel( m_iszCinematicModel != NULL_STRING ? STRING(m_iszCinematicModel) : GetChopperModelName() );
 	}
 	else
 	{
@@ -1040,12 +1117,15 @@ void CNPC_AttackHelicopter::Spawn( void )
 
 	if ( !HasSpawnFlags(SF_HELICOPTER_ELECTRICAL_DRONE) )
 	{
-		SetModel( CHOPPER_MODEL_NAME );
+		SetModel( m_iszCinematicModel != NULL_STRING ? STRING(m_iszCinematicModel) : GetChopperModelName() );
 	}
 	else
 	{
 		SetModel( CHOPPER_DRONE_NAME );
 	}
+
+	// BS2: wing-tip speed ribbons belong to cinematic helicopters only.
+	SetBS2SpeedTrails( m_bCinematicAssets || m_iszCinematicModel != NULL_STRING );
 
 	ExtractBbox( SelectHeaviestSequence( ACT_IDLE ), m_cullBoxMins, m_cullBoxMaxs ); 
 	GetEnemies()->SetFreeKnowledgeDuration( DEFAULT_FREE_KNOWLEDGE_DURATION );
@@ -3711,6 +3791,13 @@ void Chopper_BecomeChunks( CBaseEntity *pChopper )
 //-----------------------------------------------------------------------------
 void CNPC_AttackHelicopter::Event_Killed( const CTakeDamageInfo &info )
 {
+	if ( m_bCinematic )
+	{
+		m_bCinematic = false;
+		m_hCinematicNode = NULL;
+		SetMoveType((MoveType_t)m_nCinematicMoveType);
+		m_OnCinematicAborted.FireOutput(this, this);
+	}
 	if( m_lifeState == LIFE_ALIVE )
 	{
 		m_OnShotDown.FireOutput( this, this );
@@ -4969,6 +5056,7 @@ END_DATADESC()
 //------------------------------------------------------------------------------
 void CGrenadeHelicopter::Precache( void )
 {
+	PrecacheSound( "bs2/heli/cinematic_artillery_earth_impact.wav" );
 	BaseClass::Precache( );
 	PrecacheModel( GRENADE_HELICOPTER_MODEL );
 
@@ -5298,6 +5386,16 @@ void CGrenadeHelicopter::PhysicsSimulate( void )
 void CGrenadeHelicopter::VPhysicsCollision( int index, gamevcollisionevent_t *pEvent )
 {
 	BaseClass::VPhysicsCollision( index, pEvent );
+	if ( m_bExplodeOnContact && FStrEq( STRING(GetEntityName()), "scene_cinematic_megabomb" ) )
+	{
+		CBaseEntity *other=pEvent->pEntities[index==0 ? 1 : 0];
+		CBaseEntity *owner=GetOwnerEntity();
+		if ( owner && other && (other==owner || other->GetOwnerEntity()==owner) ) return;
+		Vector velocity;GetVelocity(&velocity,NULL);
+		DevMsg("CINEMATIC_BOMB_CONTACT time=%.3f hit=%s origin=%.1f %.1f %.1f\n",gpGlobals->curtime,other ? other->GetClassname() : "world",GetAbsOrigin().x,GetAbsOrigin().y,GetAbsOrigin().z);
+		DoExplosion(GetAbsOrigin(),velocity);
+		return;
+	}
 	BecomeActive();
 
 #ifndef HL2_EPISODIC	// in ep2, don't do this here, do it in Touch()
@@ -5364,8 +5462,9 @@ int CGrenadeHelicopter::OnTakeDamage( const CTakeDamageInfo &info )
 //------------------------------------------------------------------------------
 void CGrenadeHelicopter::DoExplosion( const Vector &vecOrigin, const Vector &vecVelocity )
 {
+	const bool bLandBlast = GetWaterLevel() == 0 || !(GetWaterType() & CONTENTS_WATER);
 	ExplosionCreate( GetAbsOrigin(), GetAbsAngles(), GetOwnerEntity() ? GetOwnerEntity() : this, sk_helicopter_grenadedamage.GetFloat(), 
-		sk_helicopter_grenaderadius.GetFloat(), (SF_ENVEXPLOSION_NOSPARKS|SF_ENVEXPLOSION_NODLIGHTS|SF_ENVEXPLOSION_NODECAL|SF_ENVEXPLOSION_NOFIREBALL|SF_ENVEXPLOSION_NOPARTICLES), 
+		sk_helicopter_grenaderadius.GetFloat(), (SF_ENVEXPLOSION_NOSPARKS|SF_ENVEXPLOSION_NODLIGHTS|SF_ENVEXPLOSION_NODECAL|SF_ENVEXPLOSION_NOFIREBALL|SF_ENVEXPLOSION_NOPARTICLES|(bLandBlast ? SF_ENVEXPLOSION_NOSOUND : 0)), 
 		sk_helicopter_grenadeforce.GetFloat(), this );
 
 	if ( GetShakeAmplitude() )
@@ -5389,6 +5488,20 @@ void CGrenadeHelicopter::DoExplosion( const Vector &vecOrigin, const Vector &vec
 		// Otherwise do a normal explosion
 		data.m_vOrigin = GetAbsOrigin();
 		DispatchEffect( "HelicopterMegaBomb", data );
+		// A positional, non-looping sound from the impact point survives removal
+		// of the grenade and replaces only this bomb's stock land-blast sound.
+		Vector soundOrigin = GetAbsOrigin();
+		CPASAttenuationFilter soundFilter( soundOrigin, SNDLVL_140dB );
+		EmitSound_t sound;
+		sound.m_nChannel = CHAN_AUTO;
+		sound.m_pSoundName = "bs2/heli/cinematic_artillery_earth_impact.wav";
+		sound.m_flVolume = 1.0f;
+		sound.m_SoundLevel = SNDLVL_140dB;
+		sound.m_nPitch = PITCH_NORM;
+		sound.m_pOrigin = &soundOrigin;
+		CBaseEntity::EmitSound( soundFilter, SOUND_FROM_WORLD, sound );
+		DevMsg("BS2_MEGABOMB_SOUND time=%.2f origin=%.1f %.1f %.1f\n",gpGlobals->curtime,soundOrigin.x,soundOrigin.y,soundOrigin.z);
+
 	}
 
 	UTIL_Remove( this );
@@ -5448,6 +5561,13 @@ void CGrenadeHelicopter::ExplodeConcussion( CBaseEntity *pOther )
 {
 	if ( !pOther->IsSolid() )
 		return;
+	// The scene's true mega-bomb must clear its own aircraft and bone followers.
+	if ( FStrEq( STRING(GetEntityName()), "scene_cinematic_megabomb" ) )
+	{
+		CBaseEntity *owner=GetOwnerEntity();
+		if ( owner && (pOther==owner || pOther->GetOwnerEntity()==owner) ) return;
+		DevMsg("CINEMATIC_BOMB_CONTACT time=%.3f hit=%s origin=%.1f %.1f %.1f\n",gpGlobals->curtime,pOther->GetClassname(),GetAbsOrigin().x,GetAbsOrigin().y,GetAbsOrigin().z);
+	}
 
 	if ( !m_bExplodeOnContact )
 	{
@@ -5468,7 +5588,7 @@ void CGrenadeHelicopter::ExplodeConcussion( CBaseEntity *pOther )
 	{
 		pEntityHit = pEntityHit->GetOwnerEntity();
 	}
-	if ( ( CLASS_COMBINE_GUNSHIP != pEntityHit->Classify() ) || !pEntityHit->ClassMatches( "npc_helicopter" ) )
+	if ( ( CLASS_COMBINE_GUNSHIP != pEntityHit->Classify() ) || ( !pEntityHit->ClassMatches( "npc_helicopter" ) && !pEntityHit->ClassMatches( "heli_black" ) ) )
 	{
 		// We hit something other than a helicopter.  If the player threw us, send a miss event
 		if ( IsThrownByPlayer() )

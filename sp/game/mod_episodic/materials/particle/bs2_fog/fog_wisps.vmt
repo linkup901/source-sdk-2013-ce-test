@@ -1,0 +1,15 @@
+"SpriteCard"
+{
+	"$basetexture" "particle/bs2_fog/fog_wisps"
+	"$translucent" "1"
+	"$vertexcolor" "1"
+	"$vertexalpha" "1"
+	"$nocull" "1"
+	// soft particles: fade where the sprite meets geometry (no hard lines on water/walls)
+	"$depthblend" "1"
+	"$depthblendscale" "70"
+	// fade sprites that fill the screen (camera passing through the fog)
+	"$startfadesize" "0.55"
+	"$endfadesize" "1.35"
+	"$maxsize" "4"
+}

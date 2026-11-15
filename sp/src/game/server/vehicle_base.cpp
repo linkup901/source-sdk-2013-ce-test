@@ -329,6 +329,9 @@ IMPLEMENT_SERVERCLASS_ST(CPropVehicleDriveable, DT_PropVehicleDriveable)
 END_SEND_TABLE();
 
 BEGIN_DATADESC( CPropVehicleDriveable )
+	DEFINE_INPUTFUNC( FIELD_VOID, "BeginCinematicHold", InputBeginCinematicHold ),
+	DEFINE_INPUTFUNC( FIELD_VOID, "EndCinematicHold", InputEndCinematicHold ),
+	DEFINE_FIELD( m_bCinematicHold, FIELD_BOOLEAN ),
 	// Inputs
 	DEFINE_INPUTFUNC( FIELD_VOID, "Lock",	InputLock ),
 	DEFINE_INPUTFUNC( FIELD_VOID, "Unlock",	InputUnlock ),
@@ -461,6 +464,7 @@ void CPropVehicleDriveable::Spawn( void )
 	m_flMinimumSpeedToEnterExit = 0;
 	m_takedamage = DAMAGE_EVENTS_ONLY;
 	m_bEngineLocked = false;
+	m_bCinematicHold = false;
 }
 
 
@@ -776,6 +780,14 @@ void CPropVehicleDriveable::SetupMove( CBasePlayer *player, CUserCmd *ucmd, IMov
 	if ( m_bEnterAnimOn || m_bExitAnimOn )
 		return;
 
+	if ( m_bCinematicHold )
+	{
+		CUserCmd neutral = *ucmd;
+		neutral.forwardmove = neutral.sidemove = neutral.upmove = 0;
+		neutral.buttons = IN_JUMP;
+		DriveVehicle( TICK_INTERVAL, &neutral, 0, 0 );
+		return;
+	}
 	DriveVehicle( player, ucmd );
 }
 

@@ -1,5 +1,7 @@
 # Soft fog performance review — 11 October 2026
 
+> Historical measurements: these results predate the setup fix that reuses shared grid vertices and makes 32 slices the default for newly placed volumes. Re-benchmark the revised renderer; these timings do not measure its performance.
+
 ## Verdict
 The prototype is visually useful but too expensive to cover an entire downhill route with overlapping enabled volumes. Start with ONE visible volume at 32 slices. Keep campaign adoption experimental until driving tests in the actual downhill maps confirm the frame budget. The example's regular play preset remains 48 slices; 32 was tested in the separate fogbench32 copy, not silently adopted into the example or campaign.
 

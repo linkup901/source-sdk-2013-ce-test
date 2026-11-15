@@ -52,16 +52,22 @@ public:
   CMatRenderContextPtr ctx(materials);ctx->Bind(mat);
   ctx->MatrixMode(MATERIAL_MODEL);ctx->PushMatrix();ctx->LoadIdentity();
   IMesh *mesh=ctx->GetDynamicMesh(true,NULL,NULL,mat);
+  const float scattering=MAX(bs2_fog_scatter.GetFloat(),0.f);
+  const Vector lightPosition(bs2_fog_light_x.GetFloat(),bs2_fog_light_y.GetFloat(),bs2_fog_light_z.GetFloat());
+  const float lightRadius=MAX(bs2_fog_light_radius.GetFloat(),1.f);
+  const float anisotropy=clamp(bs2_fog_anisotropy.GetFloat(),0.f,.7f);
   for(int s=layers-1;s>=0;--s)
   {
    Vector pc=c+f*(lo+(s+.5f)*step);
    CMeshBuilder mb;mb.Begin(mesh,MATERIAL_TRIANGLES,grid*grid*2);
-   for(int j=0;j<grid;++j)for(int i=0;i<grid;++i)
+   // Evaluate each shared grid point once, then reuse it for triangle vertices.
+   Vector positions[33*33];
+   unsigned char colors[33*33][4];
+   for(int j=0;j<=grid;++j)for(int i=0;i<=grid;++i)
    {
-    const int dx[6]={0,1,1,0,1,0},dy[6]={0,0,1,0,1,1};
-    for(int v=0;v<6;++v)
-    {
-     Vector p=pc+r*((float(i+dx[v])/grid*2-1)*rr)+u*((float(j+dy[v])/grid*2-1)*ru);
+     const int index=j*(grid+1)+i;
+     Vector p=pc+r*((float(i)/grid*2-1)*rr)+u*((float(j)/grid*2-1)*ru);
+     positions[index]=p;
      Vector local=p-c;float fade=1;
      // Multiplication gives soft corners as well as faces. Limit the softness
      // per axis so shallow ground mist retains a useful center density.
@@ -73,21 +79,31 @@ public:
      Vector ray=p-eye;float len=ray.Length();float cosine=len>1?MAX(DotProduct(ray,f)/len,.2f):1.f;
      float alpha=1-expf(-MAX(density,0.f)*step/cosine);
      Vector color=m_Color;
-     if(bs2_fog_scatter.GetFloat()>0 && fade>0)
+     if(scattering>0 && fade>0)
      {
-      Vector toLight=Vector(bs2_fog_light_x.GetFloat(),bs2_fog_light_y.GetFloat(),bs2_fog_light_z.GetFloat())-p;
+      Vector toLight=lightPosition-p;
       float distance=VectorNormalize(toLight);
       Vector toEye=eye-p;VectorNormalize(toEye);
-      float g=clamp(bs2_fog_anisotropy.GetFloat(),0.f,.7f);
+      float g=anisotropy;
       float mu=DotProduct(-toLight,toEye);
       float phase=(1-g*g)/powf(MAX(1+g*g-2*g*mu,.01f),1.5f);
-      float falloff=clamp(1-distance/MAX(bs2_fog_light_radius.GetFloat(),1.f),0.f,1.f);
+      float falloff=clamp(1-distance/lightRadius,0.f,1.f);
       // Smooth, bounded response avoids a saturated orange core at high settings.
-      float weight=1-expf(-MAX(bs2_fog_scatter.GetFloat(),0.f)*falloff*falloff*phase);
+      float weight=1-expf(-scattering*falloff*falloff*phase);
       color=color*(1-weight)+Vector(255,178,88)*weight;
      }
-     mb.Position3fv(p.Base());mb.Color4ub((unsigned char)clamp(color.x,0.f,255.f),(unsigned char)clamp(color.y,0.f,255.f),(unsigned char)clamp(color.z,0.f,255.f),(unsigned char)clamp(alpha*alphaScale*255+.5f,0.f,255.f));mb.TexCoord2f(0,0,0);mb.AdvanceVertex();
-    }
+     colors[index][0]=(unsigned char)clamp(color.x,0.f,255.f);
+     colors[index][1]=(unsigned char)clamp(color.y,0.f,255.f);
+     colors[index][2]=(unsigned char)clamp(color.z,0.f,255.f);
+     colors[index][3]=(unsigned char)clamp(alpha*alphaScale*255+.5f,0.f,255.f);
+   }
+   const int dx[6]={0,1,1,0,1,0},dy[6]={0,0,1,0,1,1};
+   for(int j=0;j<grid;++j)for(int i=0;i<grid;++i)for(int v=0;v<6;++v)
+   {
+     int index=(j+dy[v])*(grid+1)+i+dx[v];
+     mb.Position3fv(positions[index].Base());
+     mb.Color4ub(colors[index][0],colors[index][1],colors[index][2],colors[index][3]);
+     mb.TexCoord2f(0,0,0);mb.AdvanceVertex();
    }
    mb.End();mesh->Draw();
   }

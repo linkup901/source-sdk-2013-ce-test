@@ -238,8 +238,12 @@ protected:
 	CUtlVector< washentity_t >	m_hEntitiesPushedByWash;
 
 	void SetStartupTime( float time ) { m_flStartupTime = time; }
+public:
+	// BS2: client draws wing-tip speed ribbons only when this is set.
+	void SetBS2SpeedTrails( bool bOn ) { m_bBS2SpeedTrails = bOn; }
 private:
 	CNetworkVar( float, m_flStartupTime );
+	CNetworkVar( bool, m_bBS2SpeedTrails );
 };
 
 //-----------------------------------------------------------------------------

@@ -539,8 +539,12 @@ CTraceFilterNav::CTraceFilterNav( CAI_BaseNPC *pProber, bool bIgnoreTransientEnt
 //-----------------------------------------------------------------------------
 bool CTraceFilterNav::ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask )
 {
-	IServerEntity *pServerEntity = (IServerEntity*)pHandleEntity;
-	CBaseEntity *pEntity = (CBaseEntity *)pServerEntity;
+	// BS2 crash fix (3 Nov 2026): a static prop's handle is not a CBaseEntity. The stock cast made
+	// NPC movement/path traces call IsPlayer()/IsNPC() on the static prop record (heap corruption).
+	// Static props fall through to the standard filter, like CTraceFilterLOS (1 Nov fix).
+	CBaseEntity *pEntity = EntityFromEntityHandle( pHandleEntity );
+	if ( !pEntity )
+		return CTraceFilterSimple::ShouldHitEntity( pHandleEntity, contentsMask );
 
 	if ( m_pProber == pEntity )
 		return false;

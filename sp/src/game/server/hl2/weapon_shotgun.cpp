@@ -18,12 +18,21 @@
 #include "soundent.h"
 #include "vstdlib/random.h"
 #include "gamestats.h"
+#include "baseviewmodel_shared.h"
+#include "shake.h"
 
 // memdbgon must be the last include file in a .cpp file!!!
 #include "tier0/memdbgon.h"
 
 extern ConVar sk_auto_reload_time;
 extern ConVar sk_plr_num_shotgun_pellets;
+
+// Player-only prototype tuning. NPC attacks keep their original behavior.
+ConVar bs2_shotgun_single_interval( "bs2_shotgun_single_interval", "0.30", FCVAR_CHEAT, "Seconds between player single shots", true, 0.15f, true, 1.0f );
+ConVar bs2_shotgun_combo_window( "bs2_shotgun_combo_window", "0.50", FCVAR_CHEAT, "Reload window after the second single", true, 0.1f, true, 1.0f );
+ConVar bs2_shotgun_knockback( "bs2_shotgun_knockback", "360", FCVAR_CHEAT, "Horizontal finisher impulse", true, 0.0f, true, 600.0f );
+
+ConVar bs2_shotgun_reload_duration( "bs2_shotgun_reload_duration", "2.0", FCVAR_CHEAT, "Reload preset: 2.0 normal; 3.2 slows only the rifle spin", true, 1.25f, true, 4.0f );
 
 class CWeaponShotgun : public CBaseHLCombatWeapon
 {
@@ -33,6 +42,167 @@ public:
 
 	DECLARE_SERVERCLASS();
 
+private:
+    CNetworkVar( float, m_flBS2MotionTime );
+    CNetworkVar( int, m_nBS2Motion ); // 1 single recoil, 2 flip/ready, 3 finisher
+    float m_flBS2LastSingle;
+    int m_nBS2Singles;
+    int m_nBS2ShellsLoaded;
+    bool m_bBS2Slowing;
+    float m_flBS2PreviousTimescale;
+    float m_flBS2AppliedTimescale;
+    float m_flBS2ReadyDeadline;
+    float m_flBS2ReloadDuration;
+    void StopBS2Slow()
+    {
+        if (!m_bBS2Slowing) return;
+        ConVarRef scale("host_timescale");
+        if (scale.IsValid() && fabsf(scale.GetFloat()-m_flBS2AppliedTimescale)<0.001f)
+            scale.SetValue(m_flBS2PreviousTimescale);
+        m_bBS2Slowing = false;
+        SetContextThink(NULL, TICK_NEVER_THINK, "BS2SlowWatch");
+    }
+    void BS2SlowWatch()
+    {
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        if (!owner || !owner->IsAlive() || owner->GetActiveWeapon()!=this
+            || gpGlobals->curtime>=m_flBS2ReadyDeadline)
+        {
+            StopBS2Slow();
+            return;
+        }
+        SetContextThink(&CWeaponShotgun::BS2SlowWatch,gpGlobals->curtime+0.02f,"BS2SlowWatch");
+    }
+    void BS2StepThink()
+    {
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        if (owner && owner->IsAlive() && (owner->GetFlags() & FL_ONGROUND))
+        {
+            Vector origin=owner->GetAbsOrigin();
+            owner->PlayStepSound(origin,owner->GetSurfaceData(),0.65f,true);
+        }
+    }
+    void SendBS2Sequence(const char *name)
+    {
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        CBaseViewModel *vm=owner ? owner->GetViewModel() : NULL;
+        const char *selected=(!Q_stricmp(name,"bs2_two_shell_reload") && m_flBS2ReloadDuration>2.6f)
+            ? "bs2_two_shell_reload_slow" : name;
+        int sequence=vm ? vm->LookupSequence(selected) : -1;
+        if (sequence>=0)
+        {
+            SendViewModelAnim(sequence);
+            vm->SetPlaybackRate(1.0f);
+        }
+        DevMsg("BS2_SEQUENCE %s index=%d model=%s\n",name,sequence,vm ? STRING(vm->GetModelName()) : "none");
+    }
+    bool m_bBS2Ready;
+    bool m_bBS2FireReleased;
+    void ResetBS2Combo()
+    {
+        StopBS2Slow();
+        m_nBS2ShellsLoaded = 0;
+        m_flBS2ReadyDeadline = 0;
+        m_flBS2ReloadDuration = (bs2_shotgun_reload_duration.GetFloat()>2.6f ? 3.2f : 2.0f);
+        m_flBS2LastSingle = -10.0f;
+        m_nBS2Singles = 0;
+        m_bBS2Ready = false;
+        m_bBS2FireReleased = false;
+        m_nBS2Motion = 0;
+        m_flBS2MotionTime = 0;
+    }
+private:
+    int m_nBS2TestStep;
+    int m_nBS2TestReserve;
+    bool m_bBS2TestFire;
+    float m_flBS2TestStart;
+    float m_flBS2TestScale;
+    Vector m_vecBS2TestOrigin;
+    void BS2ReviewPress(int input)
+    {
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        if (!owner) return;
+        const int buttons=owner->m_nButtons,pressed=owner->m_afButtonPressed;
+        owner->m_nButtons=owner->m_afButtonPressed=input;
+        ItemPostFrame();
+        owner->m_nButtons=buttons;
+        owner->m_afButtonPressed=pressed;
+    }
+    void BS2ReviewThink()
+    {
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        if (!owner || !owner->IsAlive() || owner->GetActiveWeapon()!=this) return;
+        const float age=gpGlobals->curtime-m_flBS2TestStart;
+        if (age>m_flBS2ReloadDuration+6.0f) { StopBS2Slow(); Warning("BS2_REVIEW FAIL timed-out state=%d motion=%d\n",m_nBS2TestStep,m_nBS2Motion.Get()); return; }
+        if (m_nBS2TestStep==0) { BS2ReviewPress(IN_ATTACK); ++m_nBS2TestStep; }
+        else if (m_nBS2TestStep==1 && age>=0.33f) { BS2ReviewPress(IN_ATTACK); ++m_nBS2TestStep; }
+        else if (m_nBS2TestStep==2 && age>=0.47f) { BS2ReviewPress(IN_RELOAD); ++m_nBS2TestStep; }
+        else if (m_nBS2TestStep==3 && m_nBS2Motion==4)
+        {
+            if (m_bBS2TestFire) { BS2ReviewPress(IN_ATTACK); ++m_nBS2TestStep; }
+        }
+        if ((m_bBS2TestFire && m_nBS2TestStep==4 && age>=m_flBS2ReloadDuration+1.25f)
+            || (!m_bBS2TestFire && m_nBS2TestStep==3 && age>=m_flBS2ReloadDuration+1.25f))
+        {
+            ConVarRef scale("host_timescale");
+            const bool valid=m_iClip1==(m_bBS2TestFire ? 4:6)
+                && owner->GetAmmoCount(m_iPrimaryAmmoType)==m_nBS2TestReserve-2
+                && !m_bBS2Ready && !m_bBS2Slowing
+                && fabsf(scale.GetFloat()-m_flBS2TestScale)<0.001f;
+            const Vector travel=owner->GetAbsOrigin()-m_vecBS2TestOrigin;
+            Msg("BS2_REVIEW %s branch=%s clip=%d reserve=%d expected-reserve=%d travel=%.2f timescale=%.3f\n",
+                valid ? "PASS":"FAIL",m_bBS2TestFire ? "fire":"timeout",m_iClip1,
+                owner->GetAmmoCount(m_iPrimaryAmmoType),m_nBS2TestReserve-2,travel.Length2D(),scale.GetFloat());
+            return;
+        }
+        SetContextThink(&CWeaponShotgun::BS2ReviewThink,gpGlobals->curtime+0.015f,"BS2ReviewTest");
+    }
+public:
+    void StartBS2ReviewTest(bool fire)
+    {
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        if (!owner || owner->GetAmmoCount(m_iPrimaryAmmoType)<2) return;
+        ResetBS2Combo();m_bInReload=false;m_bNeedPump=false;
+        m_bDelayedFire1=m_bDelayedFire2=false;
+        m_iClip1=GetMaxClip1();
+        m_flNextPrimaryAttack=m_flNextSecondaryAttack=gpGlobals->curtime;
+        m_nBS2TestStep=0;m_bBS2TestFire=fire;m_flBS2TestStart=gpGlobals->curtime;
+        m_nBS2TestReserve=owner->GetAmmoCount(m_iPrimaryAmmoType);
+        ConVarRef scale("host_timescale");m_flBS2TestScale=scale.GetFloat();
+        m_vecBS2TestOrigin=owner->GetAbsOrigin();
+        SetContextThink(&CWeaponShotgun::BS2ReviewThink,gpGlobals->curtime+0.015f,"BS2ReviewTest");
+    }
+    void ShowBS2ReviewPose(float cycle)
+    {
+        ResetBS2Combo();SendBS2Sequence("bs2_review_presentation");
+        CBasePlayer *owner=ToBasePlayer(GetOwner());
+        CBaseViewModel *vm=owner ? owner->GetViewModel():NULL;
+        if (vm) { vm->SetCycle(clamp(cycle,0.0f,1.0f));vm->SetPlaybackRate(0.0f); }
+        SetWeaponIdleTime(gpGlobals->curtime+30);
+        m_flNextPrimaryAttack=m_flNextSecondaryAttack=gpGlobals->curtime+30;
+    }
+    virtual void UpdateOnRemove()
+    {
+        StopBS2Slow();
+        BaseClass::UpdateOnRemove();
+    }
+    virtual void OnRestore()
+    {
+        BaseClass::OnRestore();
+        StopBS2Slow();
+        ResetBS2Combo();
+    }
+    virtual bool Holster( CBaseCombatWeapon *pSwitchingTo = NULL )
+    {
+        if (!BaseClass::Holster(pSwitchingTo)) return false;
+        ResetBS2Combo();
+        return true;
+    }
+    virtual bool Deploy()
+    {
+        ResetBS2Combo();
+        return BaseClass::Deploy();
+    }
 private:
 	bool	m_bNeedPump;		// When emptied completely
 	bool	m_bDelayedFire1;	// Fire primary when finished reloading
@@ -89,12 +259,29 @@ public:
 };
 
 IMPLEMENT_SERVERCLASS_ST(CWeaponShotgun, DT_WeaponShotgun)
+    SendPropFloat( SENDINFO(m_flBS2MotionTime), 0, SPROP_NOSCALE ),
+    SendPropInt( SENDINFO(m_nBS2Motion), 3, SPROP_UNSIGNED ),
 END_SEND_TABLE()
 
 LINK_ENTITY_TO_CLASS( weapon_shotgun, CWeaponShotgun );
 PRECACHE_WEAPON_REGISTER(weapon_shotgun);
 
 BEGIN_DATADESC( CWeaponShotgun )
+    DEFINE_FIELD( m_flBS2MotionTime, FIELD_TIME ),
+    DEFINE_FIELD( m_nBS2Motion, FIELD_INTEGER ),
+    DEFINE_FIELD( m_flBS2LastSingle, FIELD_TIME ),
+    DEFINE_FIELD( m_nBS2Singles, FIELD_INTEGER ),
+    DEFINE_FIELD( m_nBS2ShellsLoaded, FIELD_INTEGER ),
+    DEFINE_FIELD( m_bBS2Slowing, FIELD_BOOLEAN ),
+    DEFINE_FIELD( m_flBS2PreviousTimescale, FIELD_FLOAT ),
+    DEFINE_FIELD( m_flBS2AppliedTimescale, FIELD_FLOAT ),
+    DEFINE_FIELD( m_flBS2ReadyDeadline, FIELD_TIME ),
+    DEFINE_FIELD( m_flBS2ReloadDuration, FIELD_FLOAT ),
+    DEFINE_THINKFUNC( BS2SlowWatch ),
+    DEFINE_THINKFUNC( BS2StepThink ),
+    DEFINE_THINKFUNC( BS2ReviewThink ),
+    DEFINE_FIELD( m_bBS2Ready, FIELD_BOOLEAN ),
+    DEFINE_FIELD( m_bBS2FireReleased, FIELD_BOOLEAN ),
 
 	DEFINE_FIELD( m_bNeedPump, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bDelayedFire1, FIELD_BOOLEAN ),
@@ -283,6 +470,7 @@ float CWeaponShotgun::GetFireRate()
 //-----------------------------------------------------------------------------
 bool CWeaponShotgun::StartReload( void )
 {
+    m_nBS2Singles = 0;
 	CBaseCombatCharacter *pOwner  = GetOwner();
 	
 	if ( pOwner == NULL )
@@ -470,8 +658,14 @@ void CWeaponShotgun::PrimaryAttack( void )
 	pPlayer->SetAnimation( PLAYER_ATTACK1 );
 
 	// Don't fire again until fire animation has completed
-	m_flNextPrimaryAttack = gpGlobals->curtime + GetViewModelSequenceDuration();
+    m_flNextPrimaryAttack = gpGlobals->curtime + bs2_shotgun_single_interval.GetFloat();
+    m_flNextSecondaryAttack = m_flNextPrimaryAttack;
+    m_flBS2MotionTime = gpGlobals->curtime;
+    m_nBS2Motion = 1;
+    m_nBS2Singles = (m_nBS2Singles == 1 && gpGlobals->curtime - m_flBS2LastSingle < 1.0f) ? 2 : 1;
+    m_flBS2LastSingle = gpGlobals->curtime;
 	m_iClip1 -= 1;
+    DevMsg("BS2_SHOTGUN single clip=%d singles=%d\n", m_iClip1, m_nBS2Singles);
 
 	Vector	vecSrc		= pPlayer->Weapon_ShootPosition( );
 	Vector	vecAiming	= pPlayer->GetAutoaimVector( AUTOAIM_SCALE_DEFAULT );	
@@ -494,7 +688,7 @@ void CWeaponShotgun::PrimaryAttack( void )
 	if( m_iClip1 )
 	{
 		// pump so long as some rounds are left.
-		m_bNeedPump = true;
+		m_bNeedPump = false; // Recoil movement covers cycling in this prototype.
 	}
 
 	m_iPrimaryAttacks++;
@@ -508,6 +702,7 @@ void CWeaponShotgun::PrimaryAttack( void )
 //-----------------------------------------------------------------------------
 void CWeaponShotgun::SecondaryAttack( void )
 {
+    m_nBS2Singles = 0;
 	// Only the player fires this way so we can cast
 	CBasePlayer *pPlayer = ToBasePlayer( GetOwner() );
 
@@ -569,6 +764,91 @@ void CWeaponShotgun::ItemPostFrame( void )
 		return;
 	}
 
+    // Reload two real reserve shells before opening the brief finisher window.
+    if (!m_bBS2Ready && !m_bInReload && (pOwner->m_afButtonPressed & IN_RELOAD)
+        && m_nBS2Singles == 2 && m_iClip1 >= 2
+        && pOwner->GetAmmoCount(m_iPrimaryAmmoType)>=2 && GetMaxClip1()-m_iClip1>=2
+        && gpGlobals->curtime-m_flBS2LastSingle<=bs2_shotgun_combo_window.GetFloat()
+        && !(pOwner->GetWaterLevel()==3 && !m_bFiresUnderwater))
+    {
+        m_bBS2Ready=true;
+        m_bBS2FireReleased=!(pOwner->m_nButtons & IN_ATTACK);
+        m_nBS2Singles=0;
+        m_nBS2ShellsLoaded=0;
+        m_bNeedPump=false;
+        m_bDelayedFire1=m_bDelayedFire2=false;
+        m_nBS2Motion=2;
+        m_flBS2MotionTime=gpGlobals->curtime;
+        m_flBS2ReloadDuration=(bs2_shotgun_reload_duration.GetFloat()>2.6f ? 3.2f : 2.0f);
+        SendBS2Sequence("bs2_two_shell_reload");
+        SetWeaponIdleTime(gpGlobals->curtime+m_flBS2ReloadDuration);
+        m_flNextPrimaryAttack=m_flNextSecondaryAttack=gpGlobals->curtime+m_flBS2ReloadDuration;
+        DevMsg("BS2_SHOTGUN reload-start clip=%d reserve=%d\n",m_iClip1,pOwner->GetAmmoCount(m_iPrimaryAmmoType));
+        return;
+    }
+    if (m_bBS2Ready)
+    {
+        if (!(pOwner->m_nButtons & IN_ATTACK)) m_bBS2FireReleased=true;
+        if (m_nBS2Motion==2)
+        {
+            const float age=gpGlobals->curtime-m_flBS2MotionTime;
+            const float extra=m_flBS2ReloadDuration-1.25f;
+            const float insertionTimes[2]={0.96f+extra,1.01f+extra};
+            while (m_nBS2ShellsLoaded<2 && age>=insertionTimes[m_nBS2ShellsLoaded])
+            {
+                if (m_iClip1>=GetMaxClip1() || pOwner->GetAmmoCount(m_iPrimaryAmmoType)<=0)
+                { ResetBS2Combo(); SendWeaponAnim(ACT_VM_IDLE); return; }
+                ++m_iClip1;
+                pOwner->RemoveAmmo(1,m_iPrimaryAmmoType);
+                ++m_nBS2ShellsLoaded;
+                WeaponSound(RELOAD);
+                DevMsg("BS2_SHOTGUN inserted=%d clip=%d reserve=%d\n",m_nBS2ShellsLoaded,m_iClip1,pOwner->GetAmmoCount(m_iPrimaryAmmoType));
+            }
+            if (age<m_flBS2ReloadDuration) return;
+            m_nBS2Motion=4;
+            m_flBS2MotionTime=gpGlobals->curtime;
+            SendBS2Sequence("bs2_finisher_ready");
+            // Slow motion is authored into the spin only; the world and ready window run normally.
+            m_bBS2Slowing=false;
+            m_flBS2ReadyDeadline=gpGlobals->curtime+0.40f;
+            m_flNextPrimaryAttack=m_flNextSecondaryAttack=gpGlobals->curtime;
+            DevMsg("BS2_SHOTGUN ready clip=%d\n",m_iClip1);
+        }
+        if (gpGlobals->curtime>=m_flBS2ReadyDeadline)
+        {
+            ResetBS2Combo();
+            SendBS2Sequence("bs2_finisher_return");
+            SetWeaponIdleTime(gpGlobals->curtime+0.25f);
+            m_flNextPrimaryAttack=m_flNextSecondaryAttack=gpGlobals->curtime+0.25f;
+            DevMsg("BS2_SHOTGUN timeout-return\n");
+            return;
+        }
+        if (m_bBS2FireReleased && (pOwner->m_afButtonPressed & IN_ATTACK))
+        {
+            if (pOwner->GetWaterLevel()==3 && !m_bFiresUnderwater) return;
+            if (m_iClip1<2) { ResetBS2Combo(); return; }
+            StopBS2Slow();
+            m_bBS2Ready=false;
+            SecondaryAttack();
+            m_bNeedPump=false;
+            m_nBS2Motion=3;
+            m_flBS2MotionTime=gpGlobals->curtime;
+            m_flNextPrimaryAttack=m_flNextSecondaryAttack=gpGlobals->curtime+1.1f;
+            Vector back;
+            AngleVectors(QAngle(0,pOwner->EyeAngles().y,0),&back);
+            pOwner->ApplyAbsVelocityImpulse(-back*bs2_shotgun_knockback.GetFloat());
+            pOwner->ViewPunch(QAngle(-5,random->RandomFloat(-1.5f,1.5f),1.0f));
+            UTIL_ScreenShake(pOwner->EyePosition(),3.5f,18.0f,0.24f,0.0f,SHAKE_START,true);
+            if (pOwner->GetFlags() & FL_ONGROUND)
+            {
+                Vector origin=pOwner->GetAbsOrigin();
+                pOwner->PlayStepSound(origin,pOwner->GetSurfaceData(),0.75f,true);
+                SetContextThink(&CWeaponShotgun::BS2StepThink,gpGlobals->curtime+0.17f,"BS2RecoilStep");
+            }
+            DevMsg("BS2_SHOTGUN finisher clip=%d impulse=%.1f\n",m_iClip1,bs2_shotgun_knockback.GetFloat());
+        }
+        return;
+    }
 	if (m_bInReload)
 	{
 		// If I'm primary firing and have one round stop reloading and fire
@@ -736,6 +1016,10 @@ void CWeaponShotgun::ItemPostFrame( void )
 //-----------------------------------------------------------------------------
 CWeaponShotgun::CWeaponShotgun( void )
 {
+    m_bBS2Slowing=false;
+    m_flBS2PreviousTimescale=1.0f;
+    m_flBS2AppliedTimescale=1.0f;
+    ResetBS2Combo();
 	m_bReloadsSingly = true;
 
 	m_bNeedPump		= false;
@@ -800,3 +1084,36 @@ void CWeaponShotgun::WeaponIdle( void )
 	}
 }
 */
+
+// Cheat-only input driver for repeatable tests without capturing the user's mouse.
+CON_COMMAND_F( bs2_shotgun_test_input, "Review test: fire, reload, or release on the equipped shotgun", FCVAR_CHEAT )
+{
+    CBasePlayer *player = UTIL_GetCommandClient();
+    if (!player) player = UTIL_GetLocalPlayer();
+    if (!player || !player->IsAlive()) return;
+    CBaseCombatWeapon *weapon = player->GetActiveWeapon();
+    if (!weapon || !FClassnameIs(weapon, "weapon_shotgun")) return;
+    DevMsg("BS2_INPUT %s at=%.3f next=%.3f clip=%d\n", args[1], gpGlobals->curtime, weapon->m_flNextPrimaryAttack.Get(), weapon->Clip1());
+    const int buttons = player->m_nButtons;
+    const int pressed = player->m_afButtonPressed;
+    const int input = !Q_stricmp(args[1], "fire") ? IN_ATTACK : (!Q_stricmp(args[1], "reload") ? IN_RELOAD : 0);
+    player->m_nButtons = player->m_afButtonPressed = input;
+    weapon->ItemPostFrame();
+    player->m_nButtons = buttons;
+    player->m_afButtonPressed = pressed;
+}
+
+CON_COMMAND_F(bs2_shotgun_review_test,"Review-only: run fire or timeout branch with server-timed inputs",FCVAR_CHEAT)
+{
+    CBasePlayer *owner=UTIL_GetLocalPlayer();
+    CBaseCombatWeapon *weapon=owner ? owner->GetActiveWeapon():NULL;
+    if (weapon && FClassnameIs(weapon,"weapon_shotgun"))
+        static_cast<CWeaponShotgun*>(weapon)->StartBS2ReviewTest(Q_stricmp(args[1],"timeout")!=0);
+}
+CON_COMMAND_F(bs2_shotgun_review_pose,"Review-only: freeze the custom reload at a cycle from 0 to 1",FCVAR_CHEAT)
+{
+    CBasePlayer *owner=UTIL_GetLocalPlayer();
+    CBaseCombatWeapon *weapon=owner ? owner->GetActiveWeapon():NULL;
+    if (weapon && FClassnameIs(weapon,"weapon_shotgun"))
+        static_cast<CWeaponShotgun*>(weapon)->ShowBS2ReviewPose(atof(args[1]));
+}
