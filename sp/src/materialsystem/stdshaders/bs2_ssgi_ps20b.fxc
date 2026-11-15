@@ -9,9 +9,9 @@ float4 P2 : register(c2); // max distance, unused, unused, output scale
 
 float4 main(float2 uv : TEXCOORD0) : COLOR0
 {
-    float d = tex2D(Depth, uv).r;
-    float notSky = step(d, 0.999);
-    float z = max(d * P1.x, 1.0);
+    float dr = tex2D(Depth, uv).r;          // view depth / zFar, 1.0 = sky (see bs2_ssao_ps20b)
+    float notSky = step(0.0002, abs(dr - 1.0));
+    float z = max(dr * P1.x, 1.0);
     float2 r = P0.w / (2.0 * z * P1.yz);
     r = min(r, float2(0.15, 0.15));
     float2 cell = fmod(floor(uv / (P0.xy * max(P2.w, 1.0))), 4.0);

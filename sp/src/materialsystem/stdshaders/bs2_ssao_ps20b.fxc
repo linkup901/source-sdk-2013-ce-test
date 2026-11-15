@@ -11,19 +11,21 @@ float LinZ(float2 uv) { return tex2D(Depth, uv).r * P1.x; }
 
 float Pair(float2 uv, float2 o, float z)
 {
-    float s1 = LinZ(uv + o);
-    float s2 = LinZ(uv - o);
+    float s1 = max(LinZ(uv + o), 1.0);
+    float s2 = max(LinZ(uv - o), 1.0);
     float h = 2.0 / (1.0 / max(s1, 1.0) + 1.0 / max(s2, 1.0));
     float conc = z - h;
     float valid = step(abs(z - s1), 3.0 * P0.w) * step(abs(z - s2), 3.0 * P0.w);
-    return saturate(conc / P1.w) * valid;
+    return saturate((conc - 0.01 * z) / max(P1.w, 1.0)) * valid;   // 1% bias: flat planes (depth not exactly view-z) read 0
 }
 
 float4 main(float2 uv : TEXCOORD0) : COLOR0
 {
-    float d = tex2D(Depth, uv).r;
-    float notSky = step(d, 0.999);
-    float z = max(d * P1.x, 1.0);
+    // depth target = view depth / view zFar (P1.x), cleared to 1.0 where nothing was drawn (sky)
+    float dr = tex2D(Depth, uv).r;
+    float notSky = step(0.0002, abs(dr - 1.0));   // exactly 1.0 = cleared (nothing drawn); real depth can exceed 1
+    float z = max(dr * P1.x, 1.0);
+    float d = saturate(z / 8192.0);     // packed for the blur pass
     float2 r = P0.w / (2.0 * z * P1.yz);
     r = min(r, float2(0.08, 0.08));
     // 4x4 interleaved rotation (Bayer order) in output pixels; the 4x4 blur pass averages it out exactly
@@ -41,9 +43,13 @@ float4 main(float2 uv : TEXCOORD0) : COLOR0
     occ += Pair(uv, mul(rot, float2(-0.866,  0.500)) * r * 1.00, z);
     occ /= 6.0;
     float fade = saturate(1.0 - z / P2.x) * notSky;
-    float ao = saturate(1.0 - P0.z * occ * fade);
+    float ao = saturate(1.0 - P0.z * saturate(occ) * fade);
     float hi = floor(d * 255.0) / 255.0;
     float4 packed = float4(ao, hi, frac(d * 255.0), 1);
+    // diagnostic (P2.y > 0.5 in mode 1): R = occlusion x4, G = fade, B = tap radius (uv x 10)
+    packed = lerp(packed, float4(saturate(occ * 4.0), fade, saturate(r.x * 10.0), 1), step(0.5, P2.y) * step(P2.y, 1.5));
+    // diagnostic 2 (P2.y > 1.5): R = ao, G = occ, B = fade
+    packed = lerp(packed, float4(ao, saturate(occ), fade, 1), step(1.5, P2.y));
     float3 scene = tex2D(Scene, uv).rgb;
     float4 comp = float4(lerp(scene * ao, ao.xxx, P2.y), 1);
     return lerp(comp, packed, step(0.5, P2.z));
