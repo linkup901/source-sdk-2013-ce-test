@@ -183,7 +183,10 @@ int	FindMiptex (const char *name)
 			textureref[i].flags |= SURF_BUMPLIGHT;
 		}
 		
-		if( GetMaterialShaderPropertyBool( matID, UTILMATLIB_NEEDS_LIGHTMAP ) )
+		// BS2: custom shaders (BS2_Glass*, in game_shader_dx9) are not loaded by the tools, so their
+		// NEEDS_LIGHTMAP property reads false. "%compileLightmap" "1" in the VMT forces a lightmap.
+		if( GetMaterialShaderPropertyBool( matID, UTILMATLIB_NEEDS_LIGHTMAP ) ||
+			( ( propVal = GetMaterialVar( matID, "%compileLightmap" ) ) && StringIsTrue( propVal ) ) )
 		{
 			textureref[i].flags &= ~SURF_NOLIGHT;
 		}
