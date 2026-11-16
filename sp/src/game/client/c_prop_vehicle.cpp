@@ -38,6 +38,7 @@ IMPLEMENT_CLIENTCLASS_DT(C_PropVehicleDriveable, DT_PropVehicleDriveable, CPropV
 	RecvPropFloat( RECVINFO( m_flThrottle ) ),
 	RecvPropInt( RECVINFO( m_nBoostTimeLeft ) ),
 	RecvPropInt( RECVINFO( m_nHasBoost ) ),
+	RecvPropBool( RECVINFO( m_bBS2BoostActive ) ),
 	RecvPropInt( RECVINFO( m_nScannerDisabledWeapons ) ),
 	RecvPropInt( RECVINFO( m_nScannerDisabledVehicle ) ),
 	RecvPropInt( RECVINFO( m_bEnterAnimOn ) ),
@@ -71,6 +72,7 @@ C_PropVehicleDriveable::C_PropVehicleDriveable() :
 
 {
 	m_hPrevPlayer = NULL;
+	m_bBS2BoostActive = false;
 
 	memset( &m_ViewSmoothingData, 0, sizeof( m_ViewSmoothingData ) );
 

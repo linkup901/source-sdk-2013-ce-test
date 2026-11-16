@@ -2109,6 +2109,9 @@ void CViewRender::RenderView( const CViewSetup &view, int nClearFlags, int whatT
 		if ( !building_cubemaps.GetBool() )
 			BS_DrawFocusBlur( view.x, view.y, view.width, view.height );
 
+		if ( !building_cubemaps.GetBool() )
+			BS2_DrawBuggySpeedFX( view.x, view.y, view.width, view.height );
+
 		if ( g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_INTEGER )
 		{
 			pRenderContext.GetFrom( materials );
@@ -5333,20 +5336,14 @@ void CBaseWorldView::DrawSetup( float waterHeight, int nSetupFlags, float waterZ
 #endif
 
 	// BS2 SSAO prototype: linear depth of the main view into _rt_ResolvedFullFrameDepth
+	// v3 (16 Nov 2026): bs2_ssao_bench no longer syncs the GPU here (ReadPixels could hang); it only changes the repeat count.
 	if ( savedViewID == VIEW_MAIN && BS2_SSAOEnabled() )
 	{
-		extern bool BS2_SSAOBenchPending();
-		if ( BS2_SSAOBenchPending() )
-		{
-			// bs2_ssao_bench: time the depth pre-pass (CPU submit + GPU, synced with ReadPixels)
-			unsigned char px[4];
-			{ CMatRenderContextPtr ctx( materials ); ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 ); }
-			const double t0 = Plat_FloatTime();
-			SSAO_DepthPass();
-			{ CMatRenderContextPtr ctx( materials ); ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 ); }
-			Msg( "bs2_ssao_bench: depth pre-pass %.3f ms (incl. one sync)\n", ( Plat_FloatTime() - t0 ) * 1000.0 );
-		}
-		else
+		extern void BS2_SSAOBenchFrame();
+		extern int BS2_SSAODepthRepeat();
+		BS2_SSAOBenchFrame();
+		const int nRep = BS2_SSAODepthRepeat();
+		for ( int i = 0; i < nRep; ++i )
 			SSAO_DepthPass();
 	}
 
@@ -5503,14 +5500,23 @@ void CBaseWorldView::SSAO_DepthPass()
 
 	pRenderContext.SafeRelease();
 
-	if( IsPC() )
+	// BS2 SSAO v3 (Claude for Isa, 16 Nov 2026): optional half-resolution depth pre-pass (matches the half-res AO pass).
+	extern int BS2_SSAODepthScale();
+	const int nDepthScale = BS2_SSAODepthScale();
+	CViewSetup depthView( *this );
+	if ( nDepthScale > 1 )
 	{
-		render->Push3DView( (*this), VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR, pSSAO, GetFrustum() );
+		depthView.m_flAspectRatio = m_flAspectRatio > 0 ? m_flAspectRatio : float( width ) / MAX( height, 1 );
+		depthView.x = x / nDepthScale; depthView.y = y / nDepthScale;
+		depthView.width = MAX( 1, width / nDepthScale ); depthView.height = MAX( 1, height / nDepthScale );
+		// clear the whole target to "sky" so AO taps that leave the half-size rectangle never read stale depth
+		CMatRenderContextPtr ctx( materials );
+		ctx->PushRenderTargetAndViewport( pSSAO );
+		ctx->ClearColor4ub( 255, 255, 255, 255 );
+		ctx->ClearBuffers( true, false );
+		ctx->PopRenderTargetAndViewport();
 	}
-	else if( IsX360() )
-	{
-		render->Push3DView( (*this), VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR, pSSAO, GetFrustum() );
-	}
+	render->Push3DView( depthView, VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR, pSSAO, GetFrustum() );
 
 	MDLCACHE_CRITICAL_SECTION();
 
@@ -5529,7 +5535,43 @@ void CBaseWorldView::SSAO_DepthPass()
 
 	{
 		VPROF_BUDGET( "DrawOpaqueRenderables", VPROF_BUDGETGROUP_SHADOW_DEPTH_TEXTURING );
+		// BS2 SSAO v3: draw from a filtered copy of the opaque lists and restore them afterwards.
+		// Restoring also matters because DrawOpaqueRenderables nulls NPC entries in the list it is given, and this
+		// pre-pass runs BEFORE the main view's opaque pass, which shares m_pRenderablesList.
+		extern float BS2_SSAODepthCullDist();
+		const float flCull = BS2_SSAODepthCullDist();
+		const int nGroups = RENDER_GROUP_CFG_NUM_OPAQUE_ENT_BUCKETS * 2;
+		static CUtlVector< CClientRenderablesList::CEntry > s_Saved[ RENDER_GROUP_CFG_NUM_OPAQUE_ENT_BUCKETS * 2 ];
+		int nSavedCount[ RENDER_GROUP_CFG_NUM_OPAQUE_ENT_BUCKETS * 2 ];
+		for ( int g = 0; g < nGroups; ++g )
+		{
+			const int n = m_pRenderablesList->m_RenderGroupCounts[g];
+			nSavedCount[g] = n;
+			s_Saved[g].SetCount( n );
+			if ( n ) memcpy( s_Saved[g].Base(), m_pRenderablesList->m_RenderGroups[g], n * sizeof( CClientRenderablesList::CEntry ) );
+			if ( flCull <= 0 ) continue;
+			const bool bSmall = ( g >> 1 ) == RENDER_GROUP_CFG_NUM_OPAQUE_ENT_BUCKETS - 1; // smallest size bucket
+			const float flLimit = bSmall ? flCull * 0.35f : flCull;
+			int nOut = 0;
+			for ( int i = 0; i < n; ++i )
+			{
+				const CClientRenderablesList::CEntry &e = s_Saved[g][i];
+				if ( !e.m_pRenderable ) continue;
+				Vector mins, maxs;
+				e.m_pRenderable->GetRenderBounds( mins, maxs );
+				const Vector center = e.m_pRenderable->GetRenderOrigin() + ( mins + maxs ) * 0.5f;
+				const float flRad = ( maxs - mins ).Length() * 0.5f;
+				if ( ( center - origin ).Length() - flRad > flLimit ) continue;
+				m_pRenderablesList->m_RenderGroups[g][nOut++] = e;
+			}
+			m_pRenderablesList->m_RenderGroupCounts[g] = nOut;
+		}
 		DrawOpaqueRenderables( DEPTH_MODE_SSA0 );
+		for ( int g = 0; g < nGroups; ++g )
+		{
+			m_pRenderablesList->m_RenderGroupCounts[g] = nSavedCount[g];
+			if ( nSavedCount[g] ) memcpy( m_pRenderablesList->m_RenderGroups[g], s_Saved[g].Base(), nSavedCount[g] * sizeof( CClientRenderablesList::CEntry ) );
+		}
 	}
 
 #if 0

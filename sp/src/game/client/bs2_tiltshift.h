@@ -2,3 +2,4 @@
 
 // Main view only, after tone mapping and before VGUI/HUD.
 void BS2_DrawTiltShift( int x, int y, int width, int height );
+void BS2_DrawBuggySpeedFX( int x, int y, int width, int height );

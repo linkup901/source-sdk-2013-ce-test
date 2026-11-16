@@ -1,5 +1,7 @@
 "screenspace_general"
 {
+    // v3: $texture1 (_rt_FullFrameFB1 = AO + packed depth) is written raw by bs2_ssao ($linearwrite 1), so read it raw.
+    // The scene ($basetexture) keeps the sRGB read + sRGB write round trip.
     "$pixshader" "bs2_ssao_blur_ps20b"
     "$basetexture" "_rt_FullFrameFB"
     "$texture1" "_rt_FullFrameFB1"
@@ -7,7 +9,7 @@
     "$linearread_texture2" "0"
     "$ignorez" "1"
     "$linearread_basetexture" "0"
-    "$linearread_texture1" "0"
+    "$linearread_texture1" "1"
     "$linearwrite" "0"
     "$c0_x" "0.0005" "$c0_y" "0.0009" "$c0_z" "1" "$c0_w" "0"
     "$c1_x" "1" "$c1_y" "1" "$c1_z" "0" "$c1_w" "0"

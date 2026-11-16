@@ -34,7 +34,13 @@ float4 main( PS_INPUT i ) : COLOR
 
 #if ( COLOR_DEPTH == 1 )
 
-	return float4( i.vWorldPos_projPosZ.w / g_flFarPlane, 0.0, 0.0, 1.0 );
+	// BS2 SSAO v3 (16 Nov 2026): _rt_ResolvedFullFrameDepth is RGBA8, so R alone kept only 8 bits of depth/far
+	// (stair-step lines on flat ground, blocky AO). Pack 24 bits: d = R + G/255 + B/65025. R alone is still d to 8 bits.
+	float d = saturate( i.vWorldPos_projPosZ.w / g_flFarPlane );
+	float d255 = d * 255.0;
+	float f = d255 - floor( d255 );
+	float f255 = f * 255.0;
+	return float4( floor( d255 ) / 255.0, floor( f255 ) / 255.0, f255 - floor( f255 ), 1.0 );
 
 #else
 

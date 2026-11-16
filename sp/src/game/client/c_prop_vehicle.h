@@ -77,6 +77,8 @@ public:
 public:
 
 	bool	IsRunningEnterExitAnim( void ) { return m_bEnterAnimOn || m_bExitAnimOn; }
+	bool IsBS2BoostActive() const { return m_bBS2BoostActive; }
+	int GetBS2SpeedMPH() const { return m_nSpeed; }
 	// NVNT added to check if the vehicle needs to aim
 	virtual bool HasGun(void){return m_bHasGun;}
 
@@ -97,6 +99,7 @@ protected:
 	float						m_flThrottle;
 	int							m_nBoostTimeLeft;
 	int							m_nHasBoost;
+	bool m_bBS2BoostActive;
 	int							m_nScannerDisabledWeapons;
 	int							m_nScannerDisabledVehicle;
 

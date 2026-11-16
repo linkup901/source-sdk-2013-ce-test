@@ -1,3 +1,4 @@
+// v3 (16 Nov 2026): s1 is sampled WITHOUT sRGB decode ($linearread_texture1 1) and the output is written raw ($linearwrite 1).
 // BS2 SSAO pass 1 (SEPPMA Phase 3). screenspace_general: s0 scene (unused in mode 1), s1 linear depth/far (_rt_ResolvedFullFrameDepth).
 // Crease AO without normals: for opposite taps s1,s2 the plane through them predicts 1/z = (1/s1+1/s2)/2,
 // so concavity = z - harmonic_mean(s1,s2) is exactly 0 on any plane, >0 in creases/contact.
@@ -6,9 +7,12 @@ sampler2D Depth : register(s1);
 float4 P0 : register(c0); // invW, invH (depth texture), strength, radius (units)
 float4 P1 : register(c1); // far plane, tan(halfFovX), tan(halfFovY), falloff (units)
 float4 P2 : register(c2); // max distance, debug (mode 0), mode (1 = write AO+depth), output scale
-float4 P3 : register(c3); // fog start, 1/(fog end - fog start) (0 = no fog), fog max density, unused
+float4 P3 : register(c3); // fog start, 1/(fog end - fog start) (0 = no fog), fog max density, screen->depth-texture uv scale (v3)
 
-float LinZ(float2 uv) { return tex2D(Depth, uv).r * P1.x; }
+// v3: the depth target is RGBA8; the (BS2-patched) depthwrite shader packs depth/far as R + G/255 + B/65025.
+// P1.x < 0 = legacy comparison material: old 8-bit R-only read.
+float DecD(float4 t) { return t.r + (t.g + t.b / 255.0) / 255.0 * step(0.0, P1.x); }
+float LinZ(float2 uv) { return DecD(tex2D(Depth, uv)) * abs(P1.x); }
 
 float Pair(float2 uv, float2 o, float z)
 {
@@ -26,12 +30,14 @@ float Pair(float2 uv, float2 o, float z)
 float4 main(float2 uv : TEXCOORD0) : COLOR0
 {
     // depth target = view depth / view zFar (P1.x), cleared to 1.0 where nothing was drawn (sky)
-    float dr = tex2D(Depth, uv).r;
-    float notSky = step(0.0002, abs(dr - 1.0));   // exactly 1.0 = cleared (nothing drawn); real depth can exceed 1
-    float z = max(dr * P1.x, 1.0);
+    float4 dt = tex2D(Depth, uv);
+    float dr = DecD(dt);
+    float notSky = step(dt.r + dt.g + dt.b, 2.99);   // cleared to white (255,255,255) where nothing was drawn
+    float z = max(dr * abs(P1.x), 1.0);
     float d = saturate(z / 8192.0);     // packed for the blur pass
     float2 r = P0.w / (2.0 * z * P1.yz);
-    r = min(r, float2(0.08, 0.08));
+    r *= P3.w;   // v3: screen -> depth-texture uv (0.5 with the half-res depth pre-pass)
+    r = min(r, float2(0.08, 0.08) * P3.w);
     // 4x4 interleaved rotation (Bayer order) in output pixels; the 4x4 blur pass averages it out exactly
     float2 cell = fmod(floor(uv / (P0.xy * max(P2.w, 1.0))), 4.0);
     float idx = cell.y * 4.0 + cell.x;                 // 16 distinct rotations per 4x4 cell
@@ -54,7 +60,9 @@ float4 main(float2 uv : TEXCOORD0) : COLOR0
     // diagnostic (P2.y > 0.5 in mode 1): R = occlusion x4, G = fade, B = tap radius (uv x 10)
     packed = lerp(packed, float4(saturate(occ * 4.0), fade, saturate(r.x * 10.0), 1), step(0.5, P2.y) * step(P2.y, 1.5));
     // diagnostic 2 (P2.y > 1.5): R = ao, G = occ, B = fade
-    packed = lerp(packed, float4(ao, saturate(occ), fade, 1), step(1.5, P2.y));
+    packed = lerp(packed, float4(ao, saturate(occ), fade, 1), step(1.5, P2.y) * step(P2.y, 2.5));
+    // diagnostic 3 (P2.y > 2.5, v3 depth proof): R = z/4096, G = z/512, B = 32/z (z = view depth in units as this pass sees it)
+    packed = lerp(packed, float4(saturate(z / 4096.0), saturate(z / 512.0), saturate(32.0 / z), 1), step(2.5, P2.y));
     float3 scene = tex2D(Scene, uv).rgb;
     float4 comp = float4(lerp(scene * ao, ao.xxx, P2.y), 1);
     return lerp(comp, packed, step(0.5, P2.z));
