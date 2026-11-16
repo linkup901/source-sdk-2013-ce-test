@@ -47,10 +47,14 @@ static void SetC( IMaterial *m, int reg, int comp, float v )
 	if ( found ) var->SetFloatValue( v );
 }
 
-void BS2_DrawSSAO( const CViewSetup &view )
+extern float BS2_GetWorldFogMaxDensity(); // viewrender.cpp
+static int s_nBenchIters = 0;
+static void CC_BS2_SSAO_Bench( const CCommand &args ) { s_nBenchIters = args.ArgC() > 1 ? clamp( atoi( args[1] ), 1, 200 ) : 50; }
+bool BS2_SSAOBenchPending() { return s_nBenchIters > 0; }
+static ConCommand bs2_ssao_bench( "bs2_ssao_bench", CC_BS2_SSAO_Bench, "Time the SSAO passes on the GPU next frame: bs2_ssao_bench [iterations] (prints ms per AO frame; that frame is over-darkened)" );
+
+static void DrawSSAOOnce( const CViewSetup &view )
 {
-	if ( !BS2_SSAOEnabled() || view.width <= 0 || view.height <= 0 )
-		return;
 	IMaterial *aoMat = materials->FindMaterial( "effects/bs2_ssao", TEXTURE_GROUP_CLIENT_EFFECTS );
 	IMaterial *blurMat = materials->FindMaterial( "effects/bs2_ssao_blur", TEXTURE_GROUP_CLIENT_EFFECTS );
 	if ( !aoMat || aoMat->IsErrorMaterial() ) { SSAOFail( "effects/bs2_ssao material missing" ); return; }
@@ -93,6 +97,17 @@ void BS2_DrawSSAO( const CViewSetup &view )
 	SetC( aoMat, 2, 1, bs2_ssao_debug.GetInt() == 5 ? 1.0f : ( bs2_ssao_debug.GetInt() == 6 ? 2.0f : 0.0f ) );
 	SetC( aoMat, 2, 2, 1 );            // mode 1: write AO + depth
 	SetC( aoMat, 2, 3, float( scale ) );  // output pixel = scale depth pixels (noise pattern in output pixels)
+	{
+		// Polish (16 Nov): fade AO with world fog. The composite runs after fogged opaque shading,
+		// so unfaded AO would darken fogged distance (the fog colour itself) with crease shadows.
+		CMatRenderContextPtr ctx( materials );
+		float fs = 0, fe = 0, fz = 0;
+		ctx->GetFogDistances( &fs, &fe, &fz );
+		const bool bFog = ctx->GetFogMode() != MATERIAL_FOG_NONE && fe > fs;
+		SetC( aoMat, 3, 0, fs );
+		SetC( aoMat, 3, 1, bFog ? 1.0f / ( fe - fs ) : 0.0f );
+		SetC( aoMat, 3, 2, bFog ? clamp( BS2_GetWorldFogMaxDensity(), 0.0f, 1.0f ) : 0.0f );
+	}
 	{
 		CMatRenderContextPtr ctx( materials );
 		ctx->PushRenderTargetAndViewport( aoRT, 0, 0, aw, ah );
@@ -175,5 +190,31 @@ void BS2_DrawSSAO( const CViewSetup &view )
 			view.x, view.y, view.x + view.width - 1, view.y + view.height - 1,
 			frame->GetActualWidth(), frame->GetActualHeight() );
 	}
-	SSAOFail( "no: drawing OK" );
+}
+
+void BS2_DrawSSAO( const CViewSetup &view )
+{
+	if ( !BS2_SSAOEnabled() || view.width <= 0 || view.height <= 0 )
+		return;
+	if ( s_nBenchIters <= 0 )
+	{
+		DrawSSAOOnce( view );
+		return;
+	}
+	// GPU timing: ReadPixels forces queued work to finish, so (t2 - t1) - (t1 - t0) ~ GPU time of N AO frames.
+	const int n = s_nBenchIters;
+	s_nBenchIters = 0;
+	unsigned char px[4];
+	CMatRenderContextPtr ctx( materials );
+	ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 );
+	const double t0 = Plat_FloatTime();
+	ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 );
+	const double t1 = Plat_FloatTime();
+	for ( int i = 0; i < n; ++i )
+		DrawSSAOOnce( view );
+	ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 );
+	const double t2 = Plat_FloatTime();
+	Msg( "bs2_ssao_bench: view %dx%d half %d blur %d ssgi %d: %.3f ms per AO frame (%d iters, sync %.3f ms)\n",
+		view.width, view.height, bs2_ssao_half.GetInt(), bs2_ssao_blur.GetInt(), bs2_ssgi.GetInt(),
+		( ( t2 - t1 ) - ( t1 - t0 ) ) * 1000.0 / n, n, ( t1 - t0 ) * 1000.0 );
 }
