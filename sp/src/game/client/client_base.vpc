@@ -486,6 +486,8 @@ $Project
 		$File	"viewdebug.cpp"
 		$File	"viewdebug.h"
 		$File	"viewpostprocess.cpp"
+		$File	"bs2_ssao.cpp"
+		$File	"bs2_ssao.h"
 		$File	"bs2_tiltshift.cpp"
 		$File	"bs2_tiltshift.h"
 		$File	"bs2_fogmotion.cpp"	// Claude 15 Nov 2026: was only in hand-edited vcxproj files; the live client.dll has it

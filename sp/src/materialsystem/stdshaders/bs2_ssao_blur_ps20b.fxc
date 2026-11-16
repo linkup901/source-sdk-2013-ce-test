@@ -1,0 +1,47 @@
+// BS2 SSAO pass 2 (SEPPMA Phase 3): 4x4 depth-aware blur of the AO term, optional one-bounce indirect, composite.
+// s0 scene (_rt_FullFrameFB), s1 AO target (R = AO, G+B = 16-bit linear depth / far), s2 bounce colour (_rt_BS2_SSGI).
+sampler2D Scene : register(s0);
+sampler2D AO : register(s1);
+sampler2D GI : register(s2);
+float4 P0 : register(c0); // AO texel size xy, blur on, debug (1 = AO term, 2 = bounce only)
+float4 P1 : register(c1); // full-frame uv -> AO uv scale xy, view origin uv xy
+float4 P2 : register(c2); // AO uv max xy, bounce strength, bounce on
+float4 P3 : register(c3); // full-frame uv -> bounce uv scale xy, bounce texel size xy
+
+float Dep(float4 t) { return t.g + t.b / 255.0; }
+
+float4 main(float2 uv : TEXCOORD0) : COLOR0
+{
+    float3 scene = tex2D(Scene, uv).rgb;
+    float2 auv = min((uv - P1.zw) * P1.xy, P2.xy);
+    auv = (floor(auv / P0.xy) + 0.5) * P0.xy;   // texel centre: AO target is bilinear, packed depth must not blend
+    float4 c = tex2D(AO, auv);
+    float zc = Dep(c);
+    float sum = 0, wsum = 0;
+    for (int y = -2; y <= 1; y++)
+    {
+        for (int x = -2; x <= 1; x++)
+        {
+            float4 t = tex2D(AO, min(auv + float2(x, y) * P0.xy, P2.xy));
+            float w = saturate(1.0 - abs(Dep(t) - zc) / (0.03 * zc + 0.0005));
+            sum += t.r * w;
+            wsum += w;
+        }
+    }
+    float aoBlur = wsum > 0.0001 ? sum / wsum : c.r;
+    float ao = lerp(c.r, aoBlur, P0.z);
+    // bounce: 4 bilinear taps (the GI target is half res and noisy)
+    float2 guv = (uv - P1.zw) * P3.xy;
+    float3 gi = tex2D(GI, guv + float2(-0.5, -0.5) * P3.zw).rgb + tex2D(GI, guv + float2(0.5, -0.5) * P3.zw).rgb
+              + tex2D(GI, guv + float2(-0.5, 0.5) * P3.zw).rgb + tex2D(GI, guv + float2(0.5, 0.5) * P3.zw).rgb;
+    gi *= 0.25 * P2.z * P2.w;
+    // bounce tints by the receiving surface colour (scene / its luminance approximates albedo * light colour)
+    float lum = dot(scene, float3(0.299, 0.587, 0.114));
+    float3 tint = scene / max(lum, 0.02);
+    float3 result = scene * ao + gi * saturate(tint) * ao;
+    result = lerp(result, ao.xxx, step(0.5, P0.w) * step(P0.w, 1.5));
+    result = lerp(result, gi, step(1.5, P0.w) * step(P0.w, 2.5));
+    result = lerp(result, frac(zc * float3(4.0, 32.0, 256.0)), step(2.5, P0.w) * step(P0.w, 3.5));   // debug 3: packed depth bands
+    result = lerp(result, c.rgb, step(4.5, P0.w));   // debug 5/6   // debug 5: raw AO target (diagnostic channels)
+    return float4(result, 1);
+}
