@@ -1,0 +1,16 @@
+"screenspace_general"
+{
+    // Comparison only (bs2_ssao_legacy_depth 1): the pre-v3 depth read (sRGB-decoded float depth),
+    // with the v3 raw AO-target write so the blur pass reads it correctly.
+    "$pixshader" "bs2_ssao_ps20b"
+    "$basetexture" "_rt_FullFrameFB"
+    "$texture1" "_rt_ResolvedFullFrameDepth"
+    "$ignorez" "1"
+    "$linearread_basetexture" "0"
+    "$linearread_texture1" "0"
+    "$linearwrite" "1"
+    "$c0_x" "0.0005" "$c0_y" "0.0009" "$c0_z" "1.2" "$c0_w" "24"
+    "$c1_x" "30000" "$c1_y" "1" "$c1_z" "0.56" "$c1_w" "12"
+    "$c2_x" "3000" "$c2_y" "0" "$c2_z" "0" "$c2_w" "0"
+    "$c3_x" "0" "$c3_y" "0" "$c3_z" "0" "$c3_w" "0"
+}
