@@ -153,7 +153,7 @@ static void DrawSSAOOnce( const CViewSetup &view )
 	SetC( aoMat, 0, 2, bs2_ssao_strength.GetFloat() );
 	SetC( aoMat, 0, 3, bs2_ssao_radius.GetFloat() );
 	const float depthFar = bs2_ssao_depthfar.GetFloat() > 0 ? bs2_ssao_depthfar.GetFloat() : view.zFar;
-	SetC( aoMat, 1, 0, depthFar );
+	SetC( aoMat, 1, 0, bs2_ssao_legacy_depth.GetBool() ? -depthFar : depthFar );   // v3: negative = legacy 8-bit R-only depth read
 	SetC( aoMat, 1, 1, tanX );
 	SetC( aoMat, 1, 2, tanY );
 	SetC( aoMat, 1, 3, bs2_ssao_falloff.GetFloat() );
@@ -165,7 +165,7 @@ static void DrawSSAOOnce( const CViewSetup &view )
 	if ( dbg == 7 )
 	{
 		static float s_nextMsg = 0;
-		if ( gpGlobals->realtime > s_nextMsg ) { s_nextMsg = gpGlobals->realtime + 2.0f; Msg( "bs2_ssao depthdbg: zFar %.1f fov %.2f view %dx%d legacy %d ds %d\n", depthFar, view.fov, view.width, view.height, bs2_ssao_legacy_depth.GetInt(), ds ); }
+		if ( gpGlobals->realtime > s_nextMsg ) { s_nextMsg = gpGlobals->realtime + 2.0f; Msg( "bs2_ssao depthdbg: depth RT format %d (%dx%d), zFar %.1f fov %.2f view %dx%d legacy %d ds %d\n", int( depth->GetImageFormat() ), dw, dh, depthFar, view.fov, view.width, view.height, bs2_ssao_legacy_depth.GetInt(), ds ); }
 	}
 	{
 		// Polish (16 Nov): fade AO with world fog. The composite runs after fogged opaque shading,
