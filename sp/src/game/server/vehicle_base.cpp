@@ -318,6 +318,7 @@ IMPLEMENT_SERVERCLASS_ST(CPropVehicleDriveable, DT_PropVehicleDriveable)
 	SendPropFloat(SENDINFO(m_flThrottle), 0, SPROP_NOSCALE ),
 	SendPropInt(SENDINFO(m_nBoostTimeLeft), 8),
 	SendPropInt(SENDINFO(m_nHasBoost), 1, SPROP_UNSIGNED),
+	SendPropBool(SENDINFO(m_bBS2BoostActive)),
 	SendPropInt(SENDINFO(m_nScannerDisabledWeapons), 1, SPROP_UNSIGNED),
 	SendPropInt(SENDINFO(m_nScannerDisabledVehicle), 1, SPROP_UNSIGNED),
 	SendPropInt(SENDINFO(m_bEnterAnimOn), 1, SPROP_UNSIGNED ),
@@ -354,6 +355,7 @@ BEGIN_DATADESC( CPropVehicleDriveable )
 	DEFINE_FIELD( m_flThrottle, FIELD_FLOAT ),
 	DEFINE_FIELD( m_nBoostTimeLeft, FIELD_INTEGER ),
 	DEFINE_FIELD( m_nHasBoost, FIELD_INTEGER ),
+	DEFINE_FIELD( m_bBS2BoostActive, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_nScannerDisabledWeapons, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_nScannerDisabledVehicle, FIELD_BOOLEAN ),
 	DEFINE_FIELD( m_bUnableToFire, FIELD_BOOLEAN ),
@@ -386,6 +388,7 @@ CPropVehicleDriveable::CPropVehicleDriveable( void ) :
 	m_flNoImpactDamageTime( 0 )
 {
 	m_vecEyeExitEndpoint.Init();
+	m_bBS2BoostActive = false;
 	m_vecGunCrosshair.Init();
 }
 
@@ -681,6 +684,7 @@ void CPropVehicleDriveable::DriveVehicle( float flFrameTime, CUserCmd *ucmd, int
 	m_nRPM = clamp( m_VehiclePhysics.GetRPM(), 0, 4095 );
 	m_nBoostTimeLeft = m_VehiclePhysics.BoostTimeLeft();
 	m_nHasBoost = m_VehiclePhysics.HasBoost();
+	m_bBS2BoostActive = m_VehiclePhysics.IsBoosting();
 	m_flThrottle = m_VehiclePhysics.GetThrottle();
 
 	m_nScannerDisabledWeapons = false;		// off for now, change once we have scanners
