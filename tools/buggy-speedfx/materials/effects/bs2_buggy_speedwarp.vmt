@@ -1,0 +1,7 @@
+"UnlitGeneric"
+{
+ "$basetexture" "_rt_FullFrameFB"
+ "$ignorez" "1"
+ "$nofog" "1"
+ "$nocull" "1"
+}
