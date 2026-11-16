@@ -64,6 +64,9 @@ void BS2_DrawBuggySpeedFX( int x, int y, int width, int height )
 
     IMaterial *warpMat = materials->FindMaterial("effects/bs2_buggy_speedwarp", TEXTURE_GROUP_CLIENT_EFFECTS);
     IMaterial *lineMat = materials->FindMaterial("effects/bs2_buggy_speedlines", TEXTURE_GROUP_CLIENT_EFFECTS);
+    CMaterialReference warpReference, lineReference;
+    warpReference.Init(warpMat);
+    lineReference.Init(lineMat);
     CMatRenderContextPtr ctx(materials);
     const MaterialMatrixMode_t matrices[3] = { MATERIAL_MODEL, MATERIAL_VIEW, MATERIAL_PROJECTION };
     for ( int m = 0; m < 3; ++m )
