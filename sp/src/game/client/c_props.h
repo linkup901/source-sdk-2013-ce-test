@@ -32,6 +32,7 @@ public:
 	unsigned int ComputeClientSideAnimationFlags();
 	bool TestBoneFollowers( const Ray_t &ray, unsigned int fContentsMask, trace_t& tr );
 	bool TestCollision( const Ray_t &ray, unsigned int fContentsMask, trace_t& tr );
+	virtual float LastBoneChangedTime();	// BS2 animation LOD (r_bs2_animlod)
 
 private:
 	C_DynamicProp( const C_DynamicProp & );
@@ -40,6 +41,7 @@ private:
 	int		m_iCachedFrameCount;
 	Vector	m_vecCachedRenderMins;
 	Vector	m_vecCachedRenderMaxs;
+	float	m_flBs2LastBoneTime;
 };
 
 #endif // C_PROPS_H

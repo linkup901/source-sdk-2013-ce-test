@@ -6,6 +6,7 @@ sampler2D Depth : register(s1);
 float4 P0 : register(c0); // invW, invH (depth texture), strength, radius (units)
 float4 P1 : register(c1); // far plane, tan(halfFovX), tan(halfFovY), falloff (units)
 float4 P2 : register(c2); // max distance, debug (mode 0), mode (1 = write AO+depth), output scale
+float4 P3 : register(c3); // fog start, 1/(fog end - fog start) (0 = no fog), fog max density, unused
 
 float LinZ(float2 uv) { return tex2D(Depth, uv).r * P1.x; }
 
@@ -15,7 +16,10 @@ float Pair(float2 uv, float2 o, float z)
     float s2 = max(LinZ(uv - o), 1.0);
     float h = 2.0 / (1.0 / max(s1, 1.0) + 1.0 / max(s2, 1.0));
     float conc = z - h;
-    float valid = step(abs(z - s1), 3.0 * P0.w) * step(abs(z - s2), 3.0 * P0.w);
+    // Polish (16 Nov): range check was a hard 3 x radius step, which let a near object (NPC, prop in front of the camera)
+    // cast a blocky hard-edged halo onto the floor behind it. Now full weight up to 2 x radius, fading to 0 at 3 x radius
+    // (1 x .. 2 x was tried: removes the halo but also most room-corner AO at grazing angles).
+    float valid = saturate(3.0 - max(abs(z - s1), abs(z - s2)) / max(P0.w, 1.0));
     return saturate((conc - 0.01 * z) / max(P1.w, 1.0)) * valid;   // 1% bias: flat planes (depth not exactly view-z) read 0
 }
 
@@ -43,6 +47,7 @@ float4 main(float2 uv : TEXCOORD0) : COLOR0
     occ += Pair(uv, mul(rot, float2(-0.866,  0.500)) * r * 1.00, z);
     occ /= 6.0;
     float fade = saturate(1.0 - z / P2.x) * notSky;
+    fade *= 1.0 - P3.z * saturate((z - P3.x) * P3.y);   // fogged pixels already show fog colour: no crease shadow on them
     float ao = saturate(1.0 - P0.z * saturate(occ) * fade);
     float hi = floor(d * 255.0) / 255.0;
     float4 packed = float4(ao, hi, frac(d * 255.0), 1);

@@ -10,6 +10,7 @@
 #include "c_physicsprop.h"
 #include "c_physbox.h"
 #include "c_props.h"
+#include "view.h"
 
 #define CPhysBox C_PhysBox
 #define CPhysicsProp C_PhysicsProp
@@ -27,6 +28,36 @@ END_NETWORK_TABLE()
 C_DynamicProp::C_DynamicProp( void )
 {
 	m_iCachedFrameCount = -1;
+	m_flBs2LastBoneTime = -1.0f;
+}
+
+//-----------------------------------------------------------------------------
+// BS2 (Claude, 15 Nov 2026): animation LOD for prop_dynamic (the animated autumn trees).
+// Bone setup is recomputed every frame near the view, then at r_bs2_animlod_hz_mid / _far Hz further away
+// (the last pose is reused in between: trees sway slowly, so it is not visible). Only for props that have no
+// move parent and are not moving. r_bs2_animlod 0 = stock behaviour.
+//-----------------------------------------------------------------------------
+static ConVar r_bs2_animlod( "r_bs2_animlod", "1", FCVAR_ARCHIVE, "BS2: update far animated prop_dynamic bones less often" );
+static ConVar r_bs2_animlod_near( "r_bs2_animlod_near", "1024", FCVAR_ARCHIVE, "BS2: full-rate bone updates inside this distance" );
+static ConVar r_bs2_animlod_hz_mid( "r_bs2_animlod_hz_mid", "30", FCVAR_ARCHIVE, "BS2: bone updates per second from near to 3x near" );
+static ConVar r_bs2_animlod_hz_far( "r_bs2_animlod_hz_far", "12", FCVAR_ARCHIVE, "BS2: bone updates per second beyond 3x near" );
+
+float C_DynamicProp::LastBoneChangedTime()
+{
+	if ( !r_bs2_animlod.GetBool() || GetMoveParent() || GetAbsVelocity().LengthSqr() > 1.0f || IsDormant() )
+		return FLT_MAX;
+	float flNear = r_bs2_animlod_near.GetFloat();
+	float d2 = ( GetAbsOrigin() - MainViewOrigin() ).LengthSqr();
+	if ( d2 < flNear * flNear )
+		return FLT_MAX;
+	float hz = ( d2 < 9.0f * flNear * flNear ) ? r_bs2_animlod_hz_mid.GetFloat() : r_bs2_animlod_hz_far.GetFloat();
+	float now = gpGlobals->curtime;
+	if ( hz <= 0.0f || m_flBs2LastBoneTime < 0.0f || now < m_flBs2LastBoneTime || now - m_flBs2LastBoneTime >= 1.0f / hz )
+	{
+		m_flBs2LastBoneTime = now;
+		return FLT_MAX;	// recompute this frame
+	}
+	return -FLT_MAX;	// keep last frame's bones
 }
 
 C_DynamicProp::~C_DynamicProp( void )
