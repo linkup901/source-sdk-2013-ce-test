@@ -13,6 +13,7 @@
 static ConVar bs2_buggy_speedfx( "bs2_buggy_speedfx", "1", FCVAR_ARCHIVE, "Black buggy boost lines and high-speed lens warp", true, 0, true, 1 );
 static ConVar bs2_buggy_speedlines( "bs2_buggy_speedlines", "0.30", FCVAR_ARCHIVE, "Boost line opacity", true, 0, true, 1 );
 static ConVar bs2_buggy_speedwarp( "bs2_buggy_speedwarp", "0.012", FCVAR_ARCHIVE, "High-speed peripheral lens distortion", true, 0, true, 0.04f );
+static ConVar bs2_buggy_speedfx_debug( "bs2_buggy_speedfx_debug", "0", FCVAR_CHEAT, "Log speed, actual boost state and effect envelopes once a second" );
 
 // Called only for the main view, before HUD. Geometry is in clip space.
 static void SpeedVertex( CMeshBuilder &b, float u, float v, float tu, float tv, float alpha )
@@ -53,6 +54,12 @@ void BS2_DrawBuggySpeedFX( int x, int y, int width, int height )
     const float warpTarget = SimpleSpline(clamp((speed-30.0f)/28.0f, 0.0f, 1.0f));
     lines = Approach(lineTarget, lines, dt / (lineTarget > lines ? 0.25f : 0.45f));
     warp = Approach(warpTarget, warp, dt / (warpTarget > warp ? 0.8f : 0.5f));
+    static float nextLog = 0;
+    if ( bs2_buggy_speedfx_debug.GetBool() && (gpGlobals->curtime >= nextLog || gpGlobals->curtime < nextLog-1) )
+    {
+        Msg("BS2_SPEEDFX mph=%.0f boost=%d lines=%.3f warp=%.3f\n", speed, car->IsBS2BoostActive() ? 1 : 0, lines, warp);
+        nextLog = gpGlobals->curtime+1;
+    }
     if ( lines < 0.001f && warp < 0.001f ) return;
 
     IMaterial *warpMat = materials->FindMaterial("effects/bs2_buggy_speedwarp", TEXTURE_GROUP_CLIENT_EFFECTS);
