@@ -15,8 +15,8 @@
 #include "tier0/memdbgon.h"
 
 static ConVar bs2_ssao( "bs2_ssao", "0", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "BS2 screen-space ambient occlusion (0 off, 1 on)", true, 0, true, 1 );
-static ConVar bs2_ssao_strength( "bs2_ssao_strength", "0.8", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "AO darkening strength", true, 0, true, 2 );
-static ConVar bs2_ssao_radius( "bs2_ssao_radius", "32", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "AO radius in world units", true, 2, true, 256 );
+static ConVar bs2_ssao_strength( "bs2_ssao_strength", "1.2", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "AO darkening strength", true, 0, true, 2 );
+static ConVar bs2_ssao_radius( "bs2_ssao_radius", "24", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "AO radius in world units", true, 2, true, 256 );
 static ConVar bs2_ssao_falloff( "bs2_ssao_falloff", "6", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "Crease depth (units) that gives full occlusion per pair", true, 0.5f, true, 256 );
 static ConVar bs2_ssao_maxdist( "bs2_ssao_maxdist", "2500", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "AO fades out by this distance (units)", true, 64, true, 65536 );
 static ConVar bs2_ssao_half( "bs2_ssao_half", "1", FCVAR_CLIENTDLL | FCVAR_ARCHIVE, "Compute AO at half resolution", true, 0, true, 1 );
