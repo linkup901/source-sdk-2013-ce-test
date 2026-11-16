@@ -65,6 +65,7 @@
 #include "rendertexture.h"
 #include "viewpostprocess.h"
 #include "bs2_tiltshift.h"
+#include "bs2_ssao.h"
 #include "bs_focus_blur.h"
 #include "viewdebug.h"
 
@@ -5324,6 +5325,12 @@ void CBaseWorldView::DrawSetup( float waterHeight, int nSetupFlags, float waterZ
 	}
 #endif
 
+	// BS2 SSAO prototype: linear depth of the main view into _rt_ResolvedFullFrameDepth
+	if ( savedViewID == VIEW_MAIN && BS2_SSAOEnabled() )
+	{
+		SSAO_DepthPass();
+	}
+
 	g_CurrentViewID = savedViewID;
 }
 
@@ -5400,6 +5407,9 @@ void CBaseWorldView::DrawExecute( float waterHeight, view_id_t viewID, float wat
 	{
 		DrawWorld( waterZAdjust );
 		DrawOpaqueRenderables( DepthMode );
+
+		if ( g_CurrentViewID == VIEW_MAIN )
+			BS2_DrawSSAO( *this );
 
 #ifdef TF_CLIENT_DLL
 		bool bVisionOverride = ( localplayer_visionflags.GetInt() & ( 0x01 ) ); // Pyro-vision Goggles
