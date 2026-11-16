@@ -1637,6 +1637,13 @@ static float GetFogMaxDensity( fogparams_t *pFogParams )
 }
 
 
+// BS2 SSAO: world fog max density for the AO fog fade (Claude for Isa, 16 Nov 2026)
+float BS2_GetWorldFogMaxDensity()
+{
+	C_BasePlayer *pPlayer = C_BasePlayer::GetLocalPlayer();
+	return GetFogMaxDensity( pPlayer ? pPlayer->GetFogParams() : NULL );
+}
+
 //-----------------------------------------------------------------------------
 // Purpose: Returns the skybox fog color to use in rendering the current frame.
 //-----------------------------------------------------------------------------
@@ -5328,7 +5335,19 @@ void CBaseWorldView::DrawSetup( float waterHeight, int nSetupFlags, float waterZ
 	// BS2 SSAO prototype: linear depth of the main view into _rt_ResolvedFullFrameDepth
 	if ( savedViewID == VIEW_MAIN && BS2_SSAOEnabled() )
 	{
-		SSAO_DepthPass();
+		extern bool BS2_SSAOBenchPending();
+		if ( BS2_SSAOBenchPending() )
+		{
+			// bs2_ssao_bench: time the depth pre-pass (CPU submit + GPU, synced with ReadPixels)
+			unsigned char px[4];
+			{ CMatRenderContextPtr ctx( materials ); ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 ); }
+			const double t0 = Plat_FloatTime();
+			SSAO_DepthPass();
+			{ CMatRenderContextPtr ctx( materials ); ctx->ReadPixels( 0, 0, 1, 1, px, IMAGE_FORMAT_RGBA8888 ); }
+			Msg( "bs2_ssao_bench: depth pre-pass %.3f ms (incl. one sync)\n", ( Plat_FloatTime() - t0 ) * 1000.0 );
+		}
+		else
+			SSAO_DepthPass();
 	}
 
 	g_CurrentViewID = savedViewID;
