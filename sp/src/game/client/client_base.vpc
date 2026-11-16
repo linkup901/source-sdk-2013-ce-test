@@ -489,6 +489,7 @@ $Project
 		$File	"bs2_ssao.cpp"
 		$File	"bs2_ssao.h"
 		$File	"bs2_tiltshift.cpp"
+		$File	"bs2_buggy_speedfx.cpp"
 		$File	"bs2_tiltshift.h"
 		$File	"bs2_fogmotion.cpp"	// Claude 15 Nov 2026: was only in hand-edited vcxproj files; the live client.dll has it
 		$File	"bs_focus_blur.cpp"

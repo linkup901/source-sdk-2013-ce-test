@@ -2109,6 +2109,9 @@ void CViewRender::RenderView( const CViewSetup &view, int nClearFlags, int whatT
 		if ( !building_cubemaps.GetBool() )
 			BS_DrawFocusBlur( view.x, view.y, view.width, view.height );
 
+		if ( !building_cubemaps.GetBool() )
+			BS2_DrawBuggySpeedFX( view.x, view.y, view.width, view.height );
+
 		if ( g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_INTEGER )
 		{
 			pRenderContext.GetFrom( materials );

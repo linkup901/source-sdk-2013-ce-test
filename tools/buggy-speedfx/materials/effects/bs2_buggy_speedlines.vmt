@@ -1,0 +1,11 @@
+"UnlitGeneric"
+{
+ "$basetexture" "effects/bs2_buggy_speedlines_white"
+ "$vertexcolor" "1"
+ "$vertexalpha" "1"
+ "$translucent" "1"
+ "$ignorez" "1"
+ "$nofog" "1"
+ "$nocull" "1"
+}
+

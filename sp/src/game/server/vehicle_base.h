@@ -262,6 +262,7 @@ public:
 	CNetworkVar( float, m_flThrottle );
 	CNetworkVar( int, m_nBoostTimeLeft );
 	CNetworkVar( int, m_nHasBoost );
+	CNetworkVar( bool, m_bBS2BoostActive );
 
 	CNetworkVector( m_vecEyeExitEndpoint );
 	CNetworkVector( m_vecGunCrosshair );
